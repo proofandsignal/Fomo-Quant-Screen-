@@ -554,7 +554,7 @@ const DEFAULT_CFG = {
   filters: { minLiqDiscovery: 10000, maxAgeH: 72, universeCap: 180 },
   gates: { minLiq: 40000, minAgeMin: 3, maxMc: 50000000, maxTokenRisk: 70, maxSlipRisk: 70, qualify: 60, paper: 70, investigate: 80, minCopy: 50, minPump: 55, minEss: 50, allowStage3: false },
   plan: { zoneTop: 0.3, zoneBottom: 1.0, chase: 0.4, slMult: 2.0, slMin: 6, slMax: 25, tpR: [1.5, 3, 5], ttlMin: 45, volMin: 2, volMax: 15, cooldownMin: 5 },
-  paper: { size: 5, refSize: 1000, feePct: 0.3, auto: true, maxOpen: 5, tpFrac: [0.4, 0.3, 0.3], timeStopMin: 20, timeStopR: 0.3, liqStopPct: 15, maxHoldMin: 240, target: 50 },
+  paper: { size: 5, refSize: 1000, feePct: 0.3, auto: true, maxOpen: 5, tpFrac: [0.4, 0.3, 0.3], timeStopMin: 20, timeStopR: 0.3, liqStopPct: 15, maxHoldMin: 1440, target: 50 },
   edge: { goodRunup: 25, lostRunup: 60, goodMove: 8, lostMove: 25 },
   esdb: { hitPct: 30, sustainPct: 20, cap: 3000 },
   sim: { tickMs: 1500 }
@@ -569,6 +569,17 @@ function deepMerge(base, over) {
   return o;
 }
 let CFG = (() => { try { return deepMerge(DEFAULT_CFG, JSON.parse(localStorage.getItem('pcr:v1:cfg') || '{}')); } catch (e) { return deepMerge(DEFAULT_CFG, {}); } })();
+try {
+  const migKey='pcr:migration:paper24h:v1';
+  if(!localStorage.getItem(migKey) && CFG.paper && CFG.paper.maxHoldMin===240){
+    CFG.paper.maxHoldMin=1440;
+    const raw=JSON.parse(localStorage.getItem('pcr:v1:cfg')||'{}');
+    raw.paper={...(raw.paper||{}),maxHoldMin:1440};
+    localStorage.setItem('pcr:v1:cfg',JSON.stringify(raw));
+    localStorage.setItem(migKey,new Date().toISOString());
+  }
+} catch(e) {}
+
 const QP = new URLSearchParams(location.search);
 const STORED_MODE = CFG.mode;
 if (QP.get('mode') === 'sim' || QP.get('mode') === 'live') CFG.mode = QP.get('mode');
@@ -1509,11 +1520,45 @@ const Planner={
   usedIds(){var a=[];S.planner.journal.forEach(function(r){var id=r&&r.original&&(r.original.testId||r.original.canonicalTestId);if(id)a.push(String(id).toUpperCase());});S.planner.observations.forEach(function(r){if(r&&r.observationId)a.push(String(r.observationId).toUpperCase());});return a;},
   nextId(prefix){var m=0;this.usedIds().forEach(function(id){if(id.startsWith(prefix)){var n=Number(id.slice(prefix.length));if(Number.isInteger(n))m=Math.max(m,n);}});return prefix+String(m+1).padStart(3,'0');},
   resolveRecordId(kind){var raw=this.recordInput(),prefix=kind==='paper'?'FOMO-P':'FOMO-OBS-',id=raw||this.nextId(prefix);if(kind==='paper'&&!/^FOMO-P\d{3}$/.test(id))throw new Error('PAPER ID трябва да е FOMO-Pxxx');if(kind==='obs'&&!/^FOMO-OBS-\d{3}$/.test(id))throw new Error('Observation ID трябва да е FOMO-OBS-xxx');if(this.usedIds().includes(id))throw new Error('Duplicate RECORD ID: '+id);return id;},
+  checkpointSpec(){return[{key:'15m',min:15,tol:3},{key:'1h',min:60,tol:5},{key:'3h',min:180,tol:10},{key:'6h',min:360,tol:15},{key:'12h',min:720,tol:30},{key:'24h',min:1440,tol:45}];},
+  trackFollowUps(){
+    var now=Date.now(),changed=false;
+    for(var i=0;i<S.planner.journal.length;i++){
+      var rec=S.planner.journal[i],o=rec&&rec.original;
+      if(!o||o.recordType!=='PAPER'||!o.lockedAt||!o.positionPlan||!o.positionPlan.token)continue;
+      var t=S.tokens.get(o.positionPlan.token.key),fill=Number(o.positionPlan.execution&&o.positionPlan.execution.fill),entryLiq=Number(o.quant&&o.quant.market&&o.quant.market.liq);
+      if(!rec.followUps)rec.followUps=[];
+      if(!rec.tracking)rec.tracking={maxPrice:null,minPrice:null,lastObservedAt:null};
+      if(t&&t.m&&Number(t.m.price)>0){
+        var px=Number(t.m.price);
+        rec.tracking.maxPrice=rec.tracking.maxPrice==null?px:Math.max(rec.tracking.maxPrice,px);
+        rec.tracking.minPrice=rec.tracking.minPrice==null?px:Math.min(rec.tracking.minPrice,px);
+        rec.tracking.lastObservedAt=now;
+      }
+      var locked=new Date(o.lockedAt).getTime(); if(!Number.isFinite(locked))continue;
+      var elapsed=(now-locked)/60000,spec=this.checkpointSpec();
+      for(var j=0;j<spec.length;j++){
+        var cp=spec[j];
+        if(rec.followUps.some(function(x){return x&&x.checkpoint===cp.key;}))continue;
+        if(elapsed>cp.min+cp.tol){
+          rec.followUps.push({checkpoint:cp.key,targetMin:cp.min,status:'NOT_VERIFIED',observedAt:new Date(now).toISOString(),reason:'missed checkpoint window'});
+          changed=true; continue;
+        }
+        if(elapsed<cp.min-cp.tol||!t||!t.m||!(Number(t.m.price)>0))continue;
+        var sourceTs=Number(t.m.updated),targetTs=locked+cp.min*60000;
+        if(!Number.isFinite(sourceTs)||Math.abs(sourceTs-targetTs)>cp.tol*60000)continue;
+        var p=Number(t.m.price),liq=Number(t.m.liq),mfe=Number.isFinite(fill)&&fill>0&&rec.tracking.maxPrice!=null?(rec.tracking.maxPrice/fill-1)*100:null,mae=Number.isFinite(fill)&&fill>0&&rec.tracking.minPrice!=null?(rec.tracking.minPrice/fill-1)*100:null;
+        rec.followUps.push({checkpoint:cp.key,targetMin:cp.min,status:'VALIDATED',observedAt:new Date(now).toISOString(),sourceTs:new Date(sourceTs).toISOString(),price:p,liquidity:Number.isFinite(liq)?liq:null,returnFromFillPct:Number.isFinite(fill)&&fill>0?(p/fill-1)*100:null,liquidityChangePct:Number.isFinite(entryLiq)&&entryLiq>0&&Number.isFinite(liq)?(liq/entryLiq-1)*100:null,sampledMfePct:mfe,sampledMaePct:mae,market:{m5:t.m.chg&&t.m.chg.m5,h1:t.m.chg&&t.m.chg.h1,h6:t.m.chg&&t.m.chg.h6,h24:t.m.chg&&t.m.chg.h24}});
+        changed=true;
+      }
+    }
+    if(changed)persist(true);
+  },
   async hash(o){var b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(o)));return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');},
   async lock(){var t=S.sel&&S.tokens.get(S.sel),p=S.planner.plan;if(!t||!p||p.token.key!==t.key){toast('Build plan first');return;}if(p.decision!=='ALLOW PAPER'){toast('Risk Gate veto');return;}var prior=S.planner.journal.find(function(r){return r&&r.original&&r.original.positionPlan&&r.original.positionPlan.createdAt===p.createdAt&&r.original.positionPlan.token&&r.original.positionPlan.token.key===t.key;});if(prior){S.planner.latestSnapshot=prior;toast(prior.original.testId+' already locked');this.render();return;}var id;try{id=this.resolveRecordId('paper');}catch(e){toast(e.message);return;}var o={schema:'fomo.position-snapshot.v0.3',testId:id,recordType:'PAPER',lockedAt:new Date().toISOString(),version:VERSION,quant:{token:{key:t.key,chain:t.chain,address:t.address,symbol:t.symbol},market:t.m,features:t.f,scores:t.s,decision:t.decision,reasons:t.reasons},analyst:S.planner.analystKey===t.key?S.planner.analyst:null,positionPlan:p},h=await this.hash(o),rec={original:o,sha256:h,followUps:[]};S.planner.journal.push(rec);S.planner.latestSnapshot=rec;persist(true);this.render();toast(o.testId+' locked');},
   exportCurrent(){var t=S.sel&&S.tokens.get(S.sel),p=S.planner.plan&&S.planner.plan.token.key===S.sel?S.planner.plan:null,r=S.planner.latestSnapshot;if(r&&t&&r.original?.positionPlan?.token?.key===t.key&&r.original.positionPlan.createdAt===p?.createdAt){download(r.original.testId+'_snapshot.json',JSON.stringify(r,null,2));return;}if(!t||!p){toast('Няма изграден plan за export');return;}var prior=S.planner.observations.find(function(o){return o&&o.planCreatedAt===p.createdAt&&o.token&&o.token.key===t.key;});if(prior){download(prior.observationId+'_'+(t.symbol||'TOKEN')+'.json',JSON.stringify(prior,null,2));return;}var id;try{id=this.resolveRecordId('obs');}catch(e){toast(e.message);return;}var evidence={schema:'fomo.position-plan-export.v0.3',observationId:id,recordType:'OBSERVATION',planCreatedAt:p.createdAt,exportedAt:new Date().toISOString(),status:'UNLOCKED_PLAN_EVIDENCE',immutable:false,paperEligible:p.decision==='ALLOW PAPER',note:'Evidence export only. Not an immutable PAPER snapshot until Risk Gate allows LOCK SNAPSHOT.',token:{key:t.key,chain:t.chain,address:t.address,symbol:t.symbol,pair:t.pairAddress,dex:t.dexId},quant:{market:t.m,features:t.f,scores:t.s,decision:t.decision,reasons:t.reasons,entryState:t.entryState,securityGate:t.securityGate||securityGateOf(t)},analyst:S.planner.analystKey===t.key?S.planner.analyst:null,positionPlan:p};S.planner.observations.push(evidence);persist(true);download(id+'_'+(t.symbol||'TOKEN')+'.json',JSON.stringify(evidence,null,2));},
   clear(){S.planner.analyst=null;S.planner.analystExtract=null;S.planner.analystKey=null;S.planner.plan=null;var f=$('#ppAnalystFile');if(f)f.value='';this.render();},
-  render(){var st=$('#ppStatus'),out=$('#ppOut'),as=$('#ppAnalystState');if(!st||!out||!as)return;var t=S.sel&&S.tokens.get(S.sel),ax=S.planner.analystKey===S.sel?S.planner.analystExtract:null;as.textContent=ax?'Analyst: '+(ax.decision||'—')+' · '+(ax.direction||'—')+' · '+(ax.confidence!=null?Math.round(ax.confidence)+'%':'—'):'Analyst validation: not loaded';if(!t||!t.m||!t.s||!t.f){st.className='pp-status';st.textContent='Избери token с market data.';out.innerHTML='<div class="empty">Planner чака Quant signal.</div>';return;}var g=this.gate(t),cl=g.status==='ALLOW PAPER'?'ok':g.status==='WATCH'?'watch':'bad';st.className='pp-status '+cl;st.textContent=g.status+' · '+(t.symbol||'?')+' · '+(g.reasons.join(' · ')||'gates passed');var p=S.planner.plan&&S.planner.plan.token.key===S.sel?S.planner.plan:null;if(!p){out.innerHTML='<div class="mini">Capital $'+($('#ppCapital').value||'10')+' · max net loss $'+($('#ppRisk').value||'1')+' · 24H. Import Analyst JSON, then BUILD PAPER PLAN.</div>';$('#positionPlannerPanel [data-act="pp-lock"]').disabled=true;$('#positionPlannerPanel [data-act="pp-export"]').disabled=true;return;}var h='<h3>POSITION + CALCULATOR</h3><div class="pp-money"><span>Capital</span><b>$'+F.n(p.capitalUsd,2)+'</b><span>Fill</span><b>'+F.px(p.execution.fill)+'</b><span>Quantity</span><b>'+F.n(p.execution.qty,4)+'</b><span>Slippage in/out</span><b>'+F.n(p.execution.slipPct,2)+'% / '+F.n(p.execution.slipPct,2)+'%</b><span>Fees + buffer</span><b>$'+F.n(p.execution.feesUsd+p.execution.bufferUsd,2)+'</b><span>STOP</span><b class="dn">−'+F.n(p.risk.stopPct,2)+'% · '+F.px(p.risk.stopPrice)+'</b><span>Modeled net loss</span><b>−$'+F.n(p.risk.netLossUsd,2)+'</b></div><table class="pp-targets"><thead><tr><th>TP</th><th>Price</th><th>Move</th><th>Exit</th><th>Full $</th><th>Partial $</th></tr></thead><tbody>';p.targets.levels.forEach(function(x){h+='<tr><td class="up">'+x.name+'</td><td>'+F.px(x.price)+'</td><td class="up">+'+F.n(x.pct,0)+'%</td><td>'+Math.round(x.exitFrac*100)+'%</td><td class="up">+$'+F.n(x.fullUsd,2)+'</td><td class="up">+$'+F.n(x.partialUsd,2)+'</td></tr>';});h+='</tbody></table><div class="mini">Runner 20% · max 24H · quality '+p.qualityScore+'/100 · structural stop '+F.n(p.risk.structuralStopPct,1)+'%</div>';if(p.gate.reasons.length)h+='<div class="reasons">'+p.gate.reasons.map(esc).join(' · ')+'</div>';if(S.planner.latestSnapshot&&S.planner.latestSnapshot.original.positionPlan.token.key===t.key)h+='<div class="pp-lock">LOCKED '+esc(S.planner.latestSnapshot.original.testId)+' · SHA-256 '+esc(S.planner.latestSnapshot.sha256)+'</div>';out.innerHTML=h;$('#positionPlannerPanel [data-act="pp-lock"]').disabled=p.decision!=='ALLOW PAPER';$('#positionPlannerPanel [data-act="pp-export"]').disabled=false;}
+  render(){var st=$('#ppStatus'),out=$('#ppOut'),as=$('#ppAnalystState');if(!st||!out||!as)return;var t=S.sel&&S.tokens.get(S.sel),ax=S.planner.analystKey===S.sel?S.planner.analystExtract:null;as.textContent=ax?'Analyst: '+(ax.decision||'—')+' · '+(ax.direction||'—')+' · '+(ax.confidence!=null?Math.round(ax.confidence)+'%':'—'):'Analyst validation: not loaded';if(!t||!t.m||!t.s||!t.f){st.className='pp-status';st.textContent='Избери token с market data.';out.innerHTML='<div class="empty">Planner чака Quant signal.</div>';return;}var g=this.gate(t),cl=g.status==='ALLOW PAPER'?'ok':g.status==='WATCH'?'watch':'bad';st.className='pp-status '+cl;st.textContent=g.status+' · '+(t.symbol||'?')+' · '+(g.reasons.join(' · ')||'gates passed');var p=S.planner.plan&&S.planner.plan.token.key===S.sel?S.planner.plan:null;if(!p){out.innerHTML='<div class="mini">Capital $'+($('#ppCapital').value||'10')+' · max net loss $'+($('#ppRisk').value||'1')+' · 24H. Import Analyst JSON, then BUILD PAPER PLAN.</div>';$('#positionPlannerPanel [data-act="pp-lock"]').disabled=true;$('#positionPlannerPanel [data-act="pp-export"]').disabled=true;return;}var h='<h3>POSITION + CALCULATOR</h3><div class="pp-money"><span>Capital</span><b>$'+F.n(p.capitalUsd,2)+'</b><span>Fill</span><b>'+F.px(p.execution.fill)+'</b><span>Quantity</span><b>'+F.n(p.execution.qty,4)+'</b><span>Slippage in/out</span><b>'+F.n(p.execution.slipPct,2)+'% / '+F.n(p.execution.slipPct,2)+'%</b><span>Fees + buffer</span><b>$'+F.n(p.execution.feesUsd+p.execution.bufferUsd,2)+'</b><span>STOP</span><b class="dn">−'+F.n(p.risk.stopPct,2)+'% · '+F.px(p.risk.stopPrice)+'</b><span>Modeled net loss</span><b>−$'+F.n(p.risk.netLossUsd,2)+'</b></div><table class="pp-targets"><thead><tr><th>TP</th><th>Price</th><th>Move</th><th>Exit</th><th>Full $</th><th>Partial $</th></tr></thead><tbody>';p.targets.levels.forEach(function(x){h+='<tr><td class="up">'+x.name+'</td><td>'+F.px(x.price)+'</td><td class="up">+'+F.n(x.pct,0)+'%</td><td>'+Math.round(x.exitFrac*100)+'%</td><td class="up">+$'+F.n(x.fullUsd,2)+'</td><td class="up">+$'+F.n(x.partialUsd,2)+'</td></tr>';});h+='</tbody></table><div class="mini">Runner 20% · max 24H · quality '+p.qualityScore+'/100 · structural stop '+F.n(p.risk.structuralStopPct,1)+'%</div>';if(p.gate.reasons.length)h+='<div class="reasons">'+p.gate.reasons.map(esc).join(' · ')+'</div>';if(S.planner.latestSnapshot&&S.planner.latestSnapshot.original.positionPlan.token.key===t.key){var rr=S.planner.latestSnapshot,fu=rr.followUps||[],ok=fu.filter(function(x){return x.status==='VALIDATED';}).length,miss=fu.filter(function(x){return x.status==='NOT_VERIFIED';}).length;h+='<div class="pp-lock">LOCKED '+esc(rr.original.testId)+' · SHA-256 '+esc(rr.sha256)+' · 24H CP '+ok+'/6 verified'+(miss?' · '+miss+' missed':'')+'</div>';}out.innerHTML=h;$('#positionPlannerPanel [data-act="pp-lock"]').disabled=p.decision!=='ALLOW PAPER';$('#positionPlannerPanel [data-act="pp-export"]').disabled=false;}
 };
 
 /* =====================================================================
@@ -1525,7 +1570,7 @@ async function cycle() {
   S.nextAt = Date.now() + (CFG.mode === 'sim' ? CFG.sim.tickMs : CFG.refreshSec * 1000);
   try {
     if (CFG.mode === 'sim') Sim.cycle(); else await liveCycle();
-    Engine.all(); Paper.tick(); Missed.tick(); ESDB.tick(); prune();
+    Engine.all(); Paper.tick(); Planner.trackFollowUps(); Missed.tick(); ESDB.tick(); prune();
     S.cycles++; persist();
   } catch (e) { Log.add('ERROR', 'APP', 'CYCLE', e.message, e.stack); }
   finally {

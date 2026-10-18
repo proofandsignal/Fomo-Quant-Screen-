@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 // Risk Gate, scoring, persistence and Position Planner. Any later change fails closed.
 // 2026-10-18 re-review: low-base acceleration reliability guard only; PAPER gating,
 // execution model, derivatives isolation and live-capital lock unchanged.
+// 2026-10-18 re-review: 24h PAPER max-hold alignment + verified checkpoint evidence only;
 // 2026-10-18 re-review: record-ID separation only (OBS vs canonical PAPER IDs); scoring,
 // Risk Gate, execution model and derivatives isolation unchanged.
 const html = fs.readFileSync('index.html', 'utf8');
@@ -19,7 +20,7 @@ const hash64 = s => {
   }
   return hash.toString(16).padStart(16, '0');
 };
-assert.equal(hash64(scripts[0]), '928f9cd640f3b189',
+assert.equal(hash64(scripts[0]), 'e9430dd172bcec1d',
   'FOMO application JS changed versus verified main; re-review PAPER 50/Risk Gate before merge');
 assert.equal((html.match(/src="derivatives-shadow\.js"/g) || []).length, 1,
   'load independent read-only module exactly once');
