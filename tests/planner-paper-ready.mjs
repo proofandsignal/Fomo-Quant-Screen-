@@ -13,12 +13,13 @@ const controls={
   ppCapital:{value:'10'},
   ppRisk:{value:'1'},
   ppBuffer:{value:'0.05'},
-  ppAnalystFile:{value:''}
+  ppAnalystFile:{value:''},
+  ppRecordId:{value:''}
 };
 const S={
   sel:'solana:ABC123',
   tokens:new Map(),
-  planner:{analyst:null,analystExtract:null,analystKey:null,plan:null,latestSnapshot:null,journal:[]}
+  planner:{analyst:null,analystExtract:null,analystKey:null,plan:null,latestSnapshot:null,journal:[],observations:[]}
 };
 const token={
   key:'solana:ABC123', chain:'solana', address:'ABC123', symbol:'TEST',
@@ -121,6 +122,11 @@ const watchExport=JSON.parse(downloads[0].body);
 assert.equal(watchExport.status,'UNLOCKED_PLAN_EVIDENCE');
 assert.equal(watchExport.immutable,false);
 assert.equal(watchExport.positionPlan.decision,'WATCH');
+assert.equal(watchExport.observationId,'FOMO-OBS-001','WATCH evidence gets observation ID');
+assert.equal(watchExport.recordType,'OBSERVATION');
+assert.equal(S.planner.observations.length,1,'observation journal stores export');
+P.exportCurrent();
+assert.equal(S.planner.observations.length,1,'repeat export must not duplicate observation record');
 
 S.planner.plan={token:{key:token.key},decision:'WATCH'};
 await P.lock();
@@ -133,8 +139,15 @@ S.planner.analystKey=token.key;
 P.build();
 await P.lock();
 assert.equal(S.planner.journal.length,1,'ALLOW PAPER snapshot should lock');
+assert.equal(S.planner.journal[0].original.testId,'FOMO-P001','locked PAPER gets canonical FOMO-Pxxx ID');
+assert.equal(S.planner.journal[0].original.recordType,'PAPER');
 assert.equal(S.planner.journal[0].sha256.length,64,'snapshot requires SHA-256');
 assert.equal(S.planner.journal[0].original.positionPlan.capitalUsd,10);
 assert.equal(S.planner.journal[0].original.positionPlan.maxNetLossUsd,1);
+await P.lock();
+assert.equal(S.planner.journal.length,1,'repeat lock must not create duplicate PAPER record');
+controls.ppRecordId.value='FOMO-P001';
+assert.throws(()=>P.resolveRecordId('paper'),/Duplicate RECORD ID/,'duplicate manual ID must be blocked');
+controls.ppRecordId.value='';
 
 console.log('FOMO Position Planner PAPER-READY regression PASS');
