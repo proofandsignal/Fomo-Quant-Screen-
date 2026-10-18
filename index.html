@@ -1021,15 +1021,22 @@ function features(t, now) {
   const tx5 = m.tx.m5.b + m.tx.m5.s, txH1 = m.tx.h1.b + m.tx.h1.s;
   const win = clamp(ageMin ?? 60, 5, 60);
   const rate5 = tx5 / 5, rateH1 = txH1 / win;
-  const txAccel = rateH1 > 0 ? rate5 / rateH1 : (tx5 > 0 ? 3 : 0);
+  const txAccelRaw = rateH1 > 0 ? rate5 / rateH1 : (tx5 > 0 ? 3 : 0);
   const volAvg5 = m.vol.h1 / (win / 5);
-  const volAccel = volAvg5 > 0 ? m.vol.m5 / volAvg5 : (m.vol.m5 > 0 ? 3 : 0);
+  const volAccelRaw = volAvg5 > 0 ? m.vol.m5 / volAvg5 : (m.vol.m5 > 0 ? 3 : 0);
+  // Low-base reliability guard: ratios from tiny absolute samples are unstable.
+  // Shrink acceleration toward neutral (1x) until enough 1h evidence exists.
+  const txBaseConfidence = clamp(txH1 / 12, 0, 1);
+  const volBaseConfidence = clamp(m.vol.h1 / 1000, 0, 1);
+  const txAccel = 1 + (txAccelRaw - 1) * txBaseConfidence * txBaseConfidence;
+  const volAccel = 1 + (volAccelRaw - 1) * volBaseConfidence * volBaseConfidence;
+  const lowBaseAccel = txBaseConfidence < 1 || volBaseConfidence < 1;
   const bsr5 = (m.tx.m5.b + 1) / (m.tx.m5.s + 1), bsrH1 = (m.tx.h1.b + 1) / (m.tx.h1.s + 1), bsr24 = (m.tx.h24.b + 1) / (m.tx.h24.s + 1);
   const runup = Math.max(m.chg.h1 || 0, (m.chg.h6 || 0) * 0.6);
   let hi = m.price; for (let i = t.hist.length - 1; i >= 0; i--) { const h = t.hist[i]; if (now - h[0] > 3600000) break; if (h[1] > hi) hi = h[1]; }
   const fs = fomoStats(t, now);
   return {
-    ageMin, tx5, txH1, txAccel, volAccel, bsr5, bsrH1, bsr24, runup, hi,
+    ageMin, tx5, txH1, txAccel, volAccel, txAccelRaw, volAccelRaw, txBaseConfidence, volBaseConfidence, lowBaseAccel, bsr5, bsrH1, bsr24, runup, hi,
     dd: hi > 0 ? (m.price / hi - 1) * 100 : 0,
     liqMc: m.mc > 0 ? m.liq / m.mc : null,
     turnover: m.liq > 0 ? m.vol.h24 / m.liq : null,
