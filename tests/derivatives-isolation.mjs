@@ -2,8 +2,10 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 // FOMO-DERIVATIVES-001 gate: the application's original inline JS must remain
-// exactly identical to main before the Bybit card. This includes PAPER 50,
-// Risk Gate, scoring, persistence and Position Planner. Any change fails closed.
+// pinned to the explicitly reviewed FOMO application JS. This includes PAPER 50,
+// Risk Gate, scoring, persistence and Position Planner. Any later change fails closed.
+// 2026-10-18 re-review: record-ID separation only (OBS vs canonical PAPER IDs); scoring,
+// Risk Gate, execution model and derivatives isolation unchanged.
 const html = fs.readFileSync('index.html', 'utf8');
 const adapter = fs.readFileSync('derivatives-shadow.js', 'utf8');
 const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
@@ -15,7 +17,7 @@ const hash64 = s => {
   }
   return hash.toString(16).padStart(16, '0');
 };
-assert.equal(hash64(scripts[0]), 'a01d249e5c972522',
+assert.equal(hash64(scripts[0]), '25ee103feb1c80e6',
   'FOMO application JS changed versus verified main; re-review PAPER 50/Risk Gate before merge');
 assert.equal((html.match(/src="derivatives-shadow\.js"/g) || []).length, 1,
   'load independent read-only module exactly once');
