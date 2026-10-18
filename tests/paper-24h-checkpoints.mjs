@@ -70,7 +70,7 @@ P.trackFollowUps();
 const cp15=r15.followUps.find(x=>x.checkpoint==='15m');
 assert.equal(cp15?.status,'VALIDATED','15m checkpoint should validate with fresh target-time source');
 assert.ok(Math.abs(cp15.returnFromFillPct-10)<0.001,'return from modeled fill must be captured');
-assert.equal(cp15.liquidityChangePct,-10,'liquidity delta must be captured');
+assert.ok(Math.abs(cp15.liquidityChangePct+10)<1e-9,'liquidity delta must be captured');
 
 // Missed windows must fail closed: no hindsight backfill.
 const r70=rec('FOMO-P002',70);
