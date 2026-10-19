@@ -86,6 +86,21 @@ S.planner.analyst=analyst;
 S.planner.analystExtract=ax;
 S.planner.analystKey=token.key;
 
+
+// Fail-closed negative regression: unknown security, invalid entry and weak Analyst approval.
+token.securityGate={status:'UNKNOWN'};
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','UNKNOWN security must not authorize PAPER');
+token.securityGate={status:'PASS'};
+token.entryState='OUT OF ZONE';
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','out-of-zone entry must not authorize PAPER');
+token.entryState='IN ZONE';
+S.planner.analystExtract={...ax,decision:'WATCH'};
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','Analyst LONG without explicit ALLOW PAPER must not authorize PAPER');
+S.planner.analystExtract=ax;
+token.decision='WATCH';
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','Quant WATCH must not authorize PAPER');
+token.decision='ALLOW PAPER';
+
 assert.equal(P.gate(token).status,'ALLOW PAPER','valid Quant + Analyst must pass gate');
 P.build();
 let plan=S.planner.plan;
