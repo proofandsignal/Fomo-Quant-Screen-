@@ -523,6 +523,7 @@ function agreementOf(t){
 function securityGateOf(t){
   const s=t.sec;
   if(!s) return {status:'UNKNOWN', reason:'security data missing'};
+  if(s.source!=='birdeye:token_security'||s.tokenAddress!==t.address||s.chain!==t.chain||!Number.isFinite(s.ts)||s.ts>Date.now()||Date.now()-s.ts>15*60000) return {status:'UNKNOWN',reason:'security source, identity or freshness unverified'};
   if(s.freeze===true) return {status:'FAIL', reason:'freeze authority'};
   if(s.freeze!==false || !Number.isFinite(Number(s.top10)) || s.top10==null || typeof s.mutable!=='boolean') return {status:'UNKNOWN', reason:'required security evidence missing'};
   if(s.top10!=null && s.top10>40) return {status:'REVIEW', reason:`top10 holders ${Math.round(s.top10)}% > 40%`};
@@ -843,7 +844,7 @@ async function srcBE() {
       const j = await API.get('BE', `${beBase()}/defi/token_security?address=${t.address}`, { headers: H(t.chain) });
       const d = j?.data; if (!d) { if (j) schemaWarn('BE', 'token_security', j); continue; }
       let top = num(d.top10HolderPercent, null); if (top != null && top <= 1.5) top *= 100;
-      t.sec = { top10: top, freeze: !!(d.freezeable || d.freezeAuthority), mutable: !!d.mutableMetadata, ts: now };
+      t.sec = { top10: top, freeze: typeof d.freezeable==='boolean'&&typeof d.freezeAuthority==='boolean' ? (d.freezeable||d.freezeAuthority) : null, mutable: typeof d.mutableMetadata==='boolean' ? d.mutableMetadata : null, ts: now, source:'birdeye:token_security', tokenAddress:t.address, chain:t.chain };
     }
   }
 }
