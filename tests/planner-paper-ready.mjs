@@ -40,7 +40,7 @@ const sandbox={
     paper:{feePct:0.3},
     plan:{slMult:2,slMin:6,slMax:25}
   },
-  securityGateOf:t=>!t.sec?'UNKNOWN'=== 'PASS'?{status:'PASS'}:{status:'UNKNOWN'}:(t.sec.freeze===false&&Number.isFinite(t.sec.top10)&&typeof t.sec.mutable==='boolean'&&!t.sec.mutable?{status:'PASS'}:{status:'UNKNOWN'}),
+  securityGateOf:t=>(t.sec?.freeze===false&&Number.isFinite(t.sec?.top10)&&typeof t.sec?.mutable==='boolean'&&!t.sec.mutable?{status:'PASS'}:{status:'UNKNOWN'}),
   qsDirection:t=>'LONG',
   slip:(size,liq)=>0.5,
   clamp:(x,a,b)=>Math.max(a,Math.min(b,x)),
