@@ -81,6 +81,14 @@ for (const minute of [5,30]) {
   assert.equal(record.followUps.find(x=>x.checkpoint===minute+'m')?.status,'VALIDATED',minute+'m target-time evidence');
 }
 
+// Future-dated source observations cannot validate a checkpoint.
+const future=rec('FOMO-P004',15);
+S.planner.journal=[future];
+token.m.updated=now+60000;
+P.trackFollowUps();
+assert.equal(future.followUps.some(x=>x.checkpoint==='15m'&&x.status==='VALIDATED'),false,'future-dated market snapshot must not validate checkpoint');
+token.m.updated=now;
+
 // Missed windows must fail closed: no hindsight backfill.
 const r70=rec('FOMO-P002',70);
 S.planner.journal=[r70];
