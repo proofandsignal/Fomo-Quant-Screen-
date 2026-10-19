@@ -72,12 +72,23 @@ assert.equal(cp15?.status,'VALIDATED','15m checkpoint should validate with fresh
 assert.ok(Math.abs(cp15.returnFromFillPct-10)<0.001,'return from modeled fill must be captured');
 assert.ok(Math.abs(cp15.liquidityChangePct+10)<1e-9,'liquidity delta must be captured');
 
+// Newly required 5m and 30m windows are verified only at target time.
+for (const minute of [5,30]) {
+  const record=rec('FOMO-P'+String(minute).padStart(3,'0'),minute);
+  S.planner.journal=[record];
+  token.m.updated=now;
+  P.trackFollowUps();
+  assert.equal(record.followUps.find(x=>x.checkpoint===minute+'m')?.status,'VALIDATED',minute+'m target-time evidence');
+}
+
 // Missed windows must fail closed: no hindsight backfill.
 const r70=rec('FOMO-P002',70);
 S.planner.journal=[r70];
 token.m.updated=now;
 P.trackFollowUps();
+assert.equal(r70.followUps.find(x=>x.checkpoint==='5m')?.status,'NOT_VERIFIED');
 assert.equal(r70.followUps.find(x=>x.checkpoint==='15m')?.status,'NOT_VERIFIED');
+assert.equal(r70.followUps.find(x=>x.checkpoint==='30m')?.status,'NOT_VERIFIED');
 assert.equal(r70.followUps.find(x=>x.checkpoint==='1h')?.status,'NOT_VERIFIED','late current price must not backfill 1h');
 
 // 24h checkpoint can validate independently after earlier checkpoints already resolved.
