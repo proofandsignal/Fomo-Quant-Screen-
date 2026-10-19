@@ -87,6 +87,13 @@ S.planner.analystExtract=ax;
 S.planner.analystKey=token.key;
 
 
+// Missing or mismatched Analyst identity must never authorize PAPER.
+S.planner.analystExtract={...ax,contract:null};
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','missing Analyst contract must fail closed');
+S.planner.analystExtract={...ax,contract:'WRONG'};
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','mismatched Analyst contract must fail closed');
+S.planner.analystExtract=ax;
+
 // Fail-closed negative regression: unknown security, invalid entry and weak Analyst approval.
 token.securityGate={status:'UNKNOWN'};
 assert.notEqual(P.gate(token).status,'ALLOW PAPER','UNKNOWN security must not authorize PAPER');
