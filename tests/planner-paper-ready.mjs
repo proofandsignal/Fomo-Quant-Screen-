@@ -27,7 +27,7 @@ const token={
   m:{price:0.001,liq:100000,mc:500000},
   f:{volUnit:3},
   s:{radar:82,copy:75,risk:40,ess:70},
-  securityGate:{status:'PASS'},
+  securityGate:{status:'PASS'}, sec:{freeze:false,top10:10,mutable:false},
   reasons:[]
 };
 S.tokens.set(token.key,token);
@@ -40,7 +40,7 @@ const sandbox={
     paper:{feePct:0.3},
     plan:{slMult:2,slMin:6,slMax:25}
   },
-  securityGateOf:t=>t.securityGate||{status:'UNKNOWN'},
+  securityGateOf:t=>!t.sec?'UNKNOWN'=== 'PASS'?{status:'PASS'}:{status:'UNKNOWN'}:(t.sec.freeze===false&&Number.isFinite(t.sec.top10)&&typeof t.sec.mutable==='boolean'&&!t.sec.mutable?{status:'PASS'}:{status:'UNKNOWN'}),
   qsDirection:t=>'LONG',
   slip:(size,liq)=>0.5,
   clamp:(x,a,b)=>Math.max(a,Math.min(b,x)),
@@ -95,9 +95,9 @@ assert.notEqual(P.gate(token).status,'ALLOW PAPER','mismatched Analyst contract 
 S.planner.analystExtract=ax;
 
 // Fail-closed negative regression: unknown security, invalid entry and weak Analyst approval.
-token.securityGate={status:'UNKNOWN'};
-assert.notEqual(P.gate(token).status,'ALLOW PAPER','UNKNOWN security must not authorize PAPER');
-token.securityGate={status:'PASS'};
+token.sec=null;
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','missing raw security must not authorize PAPER despite cached PASS');
+token.sec={freeze:false,top10:10,mutable:false};
 token.entryState='OUT OF ZONE';
 assert.notEqual(P.gate(token).status,'ALLOW PAPER','out-of-zone entry must not authorize PAPER');
 token.entryState='IN ZONE';
