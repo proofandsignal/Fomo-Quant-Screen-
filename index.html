@@ -1521,7 +1521,7 @@ const Planner={
   usedIds(){var a=[];S.planner.journal.forEach(function(r){var id=r&&r.original&&(r.original.testId||r.original.canonicalTestId);if(id)a.push(String(id).toUpperCase());});S.planner.observations.forEach(function(r){if(r&&r.observationId)a.push(String(r.observationId).toUpperCase());});return a;},
   nextId(prefix){var m=0;this.usedIds().forEach(function(id){if(id.startsWith(prefix)){var n=Number(id.slice(prefix.length));if(Number.isInteger(n))m=Math.max(m,n);}});return prefix+String(m+1).padStart(3,'0');},
   resolveRecordId(kind){var raw=this.recordInput(),prefix=kind==='paper'?'FOMO-P':'FOMO-OBS-',id=raw||this.nextId(prefix);if(kind==='paper'&&!/^FOMO-P\d{3}$/.test(id))throw new Error('PAPER ID трябва да е FOMO-Pxxx');if(kind==='obs'&&!/^FOMO-OBS-\d{3}$/.test(id))throw new Error('Observation ID трябва да е FOMO-OBS-xxx');if(this.usedIds().includes(id))throw new Error('Duplicate RECORD ID: '+id);return id;},
-  checkpointSpec(){return[{key:'15m',min:15,tol:3},{key:'1h',min:60,tol:5},{key:'3h',min:180,tol:10},{key:'6h',min:360,tol:15},{key:'12h',min:720,tol:30},{key:'24h',min:1440,tol:45}];},
+  checkpointSpec(){return[{key:'5m',min:5,tol:2},{key:'15m',min:15,tol:3},{key:'30m',min:30,tol:3},{key:'1h',min:60,tol:5},{key:'3h',min:180,tol:10},{key:'6h',min:360,tol:15},{key:'12h',min:720,tol:30},{key:'24h',min:1440,tol:45}];},
   trackFollowUps(){
     var now=Date.now(),changed=false;
     for(var i=0;i<S.planner.journal.length;i++){
