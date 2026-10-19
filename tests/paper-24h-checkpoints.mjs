@@ -55,7 +55,7 @@ function rec(id,minutesAgo,followUps=[]){
       schema:'fomo.position-snapshot.v0.3',
       testId:id,recordType:'PAPER',lockedAt,
       quant:{market:{liq:100000}},
-      positionPlan:{token:{key},execution:{fill:1.0}}
+      positionPlan:{token:{key,chain:'solana',address:'TEST'},execution:{fill:1.0}}
     },
     sha256:'x'.repeat(64),
     followUps
