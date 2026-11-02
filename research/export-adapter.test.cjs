@@ -1,0 +1,7 @@
+const {test}=require("node:test");const assert=require("node:assert/strict");const m=require("./export-adapter.js");
+const sample={schema:"fomo.position-plan-export.v0.3",recordType:"OBSERVATION",observationId:"FOMO-OBS-030",planCreatedAt:"2026-11-01T05:16:58.081Z",token:{chain:"solana",address:"HI-mint"},quant:{market:{price:0.0003107,liq:54922.83},decision:"WATCH",securityGate:{status:"UNKNOWN"}},analyst:{originalQuant:{direction:"NO TRADE"}},positionPlan:{decision:"WATCH",risk:{stopPrice:0.000286},targets:{levels:[{price:0.000349}]}}};
+test("historical HI remains NO TRADE + WATCH",()=>{const r=m.parse(sample);assert.equal(r.originalDirection,"NO TRADE");assert.equal(r.finalDecision,"WATCH");assert.equal(r.paperEligible,false);});
+test("missing token mint fails closed",()=>assert.equal(m.parse({...sample,token:{chain:"solana"}}).status,"NOT_VERIFIED"));
+test("cannot fabricate SHORT levels from LONG plan",()=>assert.equal(m.scenarioFromExport(sample,"SHORT",{}).reason,"SHORT_PLAN_NOT_PRESENT_IN_EXPORT"));
+test("missing verified cost inputs fails closed",()=>assert.equal(m.scenarioFromExport(sample,"LONG",{}).status,"NOT_VERIFIED"));
+test("explicit costs allow labeled scenario only",()=>{const r=m.scenarioFromExport(sample,"LONG",{feePct:0.1,spreadPct:0.2,slippagePct:0.3,fundingPct:0,borrowPct:0});assert.equal(r.status,"SCENARIO_INPUT");assert.equal(r.historicalResearchOnly,true);assert.equal(r.sourceOriginalDirection,"NO TRADE");});
