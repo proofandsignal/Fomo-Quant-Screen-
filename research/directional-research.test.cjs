@@ -1,0 +1,16 @@
+const assert=require("node:assert/strict");
+const {test}=require("node:test");
+const m=require("./directional-research.js");
+const token={chain:"solana",address:"HI-mint"};
+const t0={token,timestamp:1000,price:0.0007869,direction:"NO TRADE",security:"UNKNOWN"};
+const followup={token,timestamp:2000,price:0.0003107};
+test("HI retrospective decline is NOT a historical short win",()=>{const r=m.evaluate({t0,followup});assert.equal(r.status,"MEASURED");assert.equal(r.direction,"NO TRADE");assert.equal(r.directionCorrect,null);assert.equal(r.paperFill,false);assert.equal(r.tradePnL,"NOT_VERIFIED");assert.ok(r.movePct < -60 && r.movePct > -61);});
+test("SHORT hypothesis correctly predicts decline but is not a fill",()=>{const r=m.evaluate({t0:{...t0,direction:"SHORT"},followup});assert.equal(r.directionCorrect,true);assert.equal(r.shortExecution.status,"NOT_VERIFIED");assert.equal(r.paperFill,false);});
+test("LONG on decline incorrect",()=>assert.equal(m.evaluate({t0:{...t0,direction:"LONG"},followup}).directionCorrect,false));
+test("missing security does not become PASS",()=>assert.equal(m.evaluate({t0,followup}).security,"UNKNOWN"));
+test("identity mismatch fails closed",()=>assert.equal(m.evaluate({t0,followup:{...followup,token:{chain:"solana",address:"other"}}}).status,"NOT_VERIFIED"));
+test("future T0 fails closed",()=>assert.equal(m.evaluate({t0,followup:{...followup,timestamp:999}}).status,"NOT_VERIFIED"));
+test("no short venue is not executable",()=>assert.equal(m.shortFeasibility({verified:true,instrumentAvailable:false}).status,"NOT_EXECUTABLE"));
+test("unknown short venue is not verified",()=>assert.equal(m.shortFeasibility(null).status,"NOT_VERIFIED"));
+test("repeated same T0 has same dedupe key",()=>assert.equal(m.dedupeKey(t0),m.dedupeKey({...t0})));
+test("summaries do not count hypothetical fills",()=>assert.equal(m.summarize([m.evaluate({t0,followup})]).approvedPaperFills,0));
