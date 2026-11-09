@@ -1,0 +1,26 @@
+name: Position Capacity Research Tests
+on:
+  push:
+    branches: [research/002-directional-evaluation]
+  pull_request:
+    paths:
+      - 'research/position-capacity*'
+      - '.github/workflows/position-capacity-research.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capacity-research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run synthetic capacity tests
+        run: node --test research/position-capacity.test.cjs research/position-capacity-preview.test.cjs
+      - name: Check isolated preview markers
+        run: |
+          grep -q 'PAPER 0/50' research/position-capacity-preview.html
+          grep -q 'NOT VERIFIED' research/position-capacity-preview.html
+          grep -q 'Evidence Explorer' research/position-capacity-preview.html
