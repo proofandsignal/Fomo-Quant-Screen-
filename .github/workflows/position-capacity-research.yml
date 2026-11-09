@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run synthetic capacity tests
-        run: node --test research/position-capacity.test.cjs
+        run: node --test research/position-capacity.test.cjs research/position-capacity-preview.test.cjs
       - name: Check isolated preview markers
         run: |
           grep -q 'PAPER 0/50' research/position-capacity-preview.html
