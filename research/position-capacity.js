@@ -16,6 +16,8 @@ function evaluateSide(input,side){
  if(x.securityStatus!=='PASS')add('SECURITY_NOT_PASS');
  const mode=e.mode==='VERIFIED'?'VERIFIED':'SYNTHETIC';
  if(mode!=='VERIFIED')add('SCENARIO_ONLY');
+ const independent=mode==='VERIFIED'&&e.independentVerified===true&&typeof e.claimSource==='string'&&e.claimSource.length>0&&typeof e.verificationSource==='string'&&e.verificationSource.length>0&&e.claimSource!==e.verificationSource;
+ if(!independent)add('INDEPENDENT_VERIFICATION_NOT_PROVIDED');
  const freshness=positive(x.freshnessMinutes)?Math.min(x.freshnessMinutes,60):10;
  const now=x.evaluatedAt||new Date().toISOString();
  if(!e.source||!validity(e.asOf,now,freshness))add('PROVENANCE_STALE_OR_MISSING');
@@ -24,9 +26,11 @@ function evaluateSide(input,side){
  const instrumentVerified=v.verified===true&&v.tradable===true&&allowed.includes(venueKind)&&typeof v.instrumentSymbol==='string'&&v.instrumentSymbol.length>1&&typeof v.source==='string'&&v.source.length>0&&validity(v.asOf,now,freshness)&&
    (s!=='SHORT'||(venueKind==='PERPETUAL'?v.perpetualTradable===true:v.borrowAvailable===true));
  if(!instrumentVerified)add(s==='SHORT'?'SHORT_INSTRUMENT_NOT_VERIFIED':'LONG_INSTRUMENT_NOT_VERIFIED');
+ const tokenMatches=typeof x.token?.chain==='string'&&typeof x.token?.mint==='string'&&x.token.chain.length>0&&x.token.mint.length>0&&v.underlyingChain===x.token.chain&&v.underlyingMint===x.token.mint;
+ if(!tokenMatches)add('UNDERLYING_TOKEN_IDENTITY_NOT_VERIFIED');
  const costsVerified=C.every(k=>nonnegative(c[k]));
  if(!costsVerified)add('COSTS_NOT_VERIFIED');
- const depthVerified=v.depthVerified===true&&positive(v.depthCapacityUsd)&&typeof v.depthSource==='string'&&v.depthSource.length>0&&validity(v.depthAsOf,now,freshness);
+ const depthVerified=v.depthVerified===true&&positive(v.depthCapacityUsd)&&typeof v.depthSource==='string'&&v.depthSource.length>0&&validity(v.depthAsOf,now,freshness)&&nonnegative(v.depthSlippagePct)&&positive(x.maxSlippagePct)&&v.depthSlippagePct<=x.maxSlippagePct;
  if(!depthVerified)add('ORDER_BOOK_DEPTH_NOT_VERIFIED');
  const marginVerified=positive(v.orderLimitUsd)&&positive(v.marginCapacityUsd);
  if(!marginVerified)add('VENUE_LIMITS_NOT_VERIFIED');
@@ -47,7 +51,7 @@ function evaluateSide(input,side){
  const budgetVerified=positive(riskBudget)&&geometry&&costsVerified&&riskBudget>c.networkUsd;
  if(!budgetVerified)add('STOP_BASED_RISK_BUDGET_NOT_VERIFIED');
  const riskNotional=budgetVerified?(riskBudget-c.networkUsd)/(stopRate+stopCostRate):null;
- const capRequirements=mode==='VERIFIED'&&x.securityStatus==='PASS'&&e.source&&validity(e.asOf,now,freshness)&&instrumentVerified&&depthVerified&&marginVerified&&borrowVerified&&budgetVerified&&(!leveraged||!!liquidation)&&!reasons.includes('STOP_BEYOND_LIQUIDATION');
+ const capRequirements=independent&&tokenMatches&&x.securityStatus==='PASS'&&e.source&&validity(e.asOf,now,freshness)&&instrumentVerified&&depthVerified&&marginVerified&&borrowVerified&&budgetVerified&&(!leveraged||!!liquidation)&&!reasons.includes('STOP_BEYOND_LIQUIDATION');
  const caps=capRequirements?[v.depthCapacityUsd,v.orderLimitUsd,v.marginCapacityUsd,riskNotional,...(s==='SHORT'?[v.borrowCapacityUsd]:[])]:[];
  const maxUsd=capRequirements&&caps.every(positive)?Math.min(...caps):null;
  const maxQty=maxUsd!==null&&positive(entry)?maxUsd/entry:null;
