@@ -47,7 +47,7 @@ function evaluateSide(input,side){
  const budgetVerified=positive(riskBudget)&&geometry&&costsVerified&&riskBudget>c.networkUsd;
  if(!budgetVerified)add('STOP_BASED_RISK_BUDGET_NOT_VERIFIED');
  const riskNotional=budgetVerified?(riskBudget-c.networkUsd)/(stopRate+stopCostRate):null;
- const capRequirements=instrumentVerified&&depthVerified&&marginVerified&&borrowVerified&&budgetVerified;
+ const capRequirements=mode==='VERIFIED'&&x.securityStatus==='PASS'&&e.source&&validity(e.asOf,now,freshness)&&instrumentVerified&&depthVerified&&marginVerified&&borrowVerified&&budgetVerified&&(!leveraged||!!liquidation)&&!reasons.includes('STOP_BEYOND_LIQUIDATION');
  const caps=capRequirements?[v.depthCapacityUsd,v.orderLimitUsd,v.marginCapacityUsd,riskNotional,...(s==='SHORT'?[v.borrowCapacityUsd]:[])]:[];
  const maxUsd=capRequirements&&caps.every(positive)?Math.min(...caps):null;
  const maxQty=maxUsd!==null&&positive(entry)?maxUsd/entry:null;
