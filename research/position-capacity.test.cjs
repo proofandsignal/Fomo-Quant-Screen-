@@ -1,0 +1,14 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {evaluateBoth}=require('./position-capacity.js');
+const base=()=>({entry:100,stops:{LONG:90,SHORT:110},targets:{LONG:120,SHORT:80},securityStatus:'PASS',originalQuantDirection:'NO TRADE',evidence:{source:'synthetic fixture',asOf:'2026-11-09T00:00:00Z'},riskCapacityUsd:{LONG:100,SHORT:100},costs:Object.fromEntries(['LONG','SHORT'].map(s=>[s,{entryFeePct:.1,exitFeePct:.1,spreadPct:.1,entrySlippagePct:.1,exitSlippagePct:.1,fundingBorrowPct:.1,networkUsd:.1,stopSlippagePct:.2}])),venues:{LONG:{verified:true,tradable:true,instrument:'SPOT',depthCapacityUsd:200,orderLimitUsd:300,marginCapacityUsd:200,leverageVerified:true,maxLeverage:1,leveraged:false},SHORT:{verified:true,tradable:true,instrument:'PERPETUAL',depthCapacityUsd:200,orderLimitUsd:300,marginCapacityUsd:200,borrowCapacityUsd:150,leverageVerified:true,maxLeverage:2,leveraged:true,liquidationVerified:true,liquidationPrice:160,maintenanceMarginPct:5}}});
+test('both sides calculated independently with all evidence',()=>{const r=evaluateBoth(base());assert.equal(r.long.decision,'ALLOW');assert.equal(r.short.decision,'ALLOW');assert.equal(r.long.maxExecutableUsd,100);assert.ok(r.short.netProfitUsd>0);assert.equal(r.executionEnabled,false)});
+test('short unavailable without borrow or perpetual',()=>{let x=base();x.venues.SHORT.instrument='SPOT';let r=evaluateBoth(x);assert.equal(r.short.decision,'WATCH');assert.ok(r.short.reasons.includes('VENUE_NOT_VERIFIED'))});
+test('missing depth never fabricates capacity',()=>{let x=base();delete x.venues.LONG.depthCapacityUsd;let r=evaluateBoth(x);assert.equal(r.long.maxExecutableUsd,null);assert.equal(r.long.decision,'WATCH')});
+test('missing costs never fabricates net pnl',()=>{let x=base();delete x.costs.SHORT.fundingBorrowPct;let r=evaluateBoth(x);assert.equal(r.short.netProfitUsd,null)});
+test('inverted short stop rejected',()=>{let x=base();x.stops.SHORT=90;assert.equal(evaluateBoth(x).short.decision,'REJECT')});
+test('original no trade is preserved',()=>{let r=evaluateBoth(base());assert.equal(r.long.originalQuantDirection,'NO TRADE');assert.equal(r.short.paperEligible,false)});
+test('unknown security prevents allow',()=>{let x=base();x.securityStatus='UNKNOWN';assert.equal(evaluateBoth(x).long.decision,'WATCH')});
+test('liquidation evidence required when leveraged',()=>{let x=base();delete x.venues.SHORT.liquidationPrice;assert.equal(evaluateBoth(x).short.decision,'WATCH')});
+test('risk limit bounds both sides',()=>{let x=base();x.riskCapacityUsd.LONG=25;assert.equal(evaluateBoth(x).long.maxExecutableUsd,25)});
+test('negative net reward rejects',()=>{let x=base();x.targets.LONG=100.01;assert.equal(evaluateBoth(x).long.decision,'REJECT')});
