@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>FOMO Quant · Market Sources & Profit Calculator</title>
+<style>
+:root{color-scheme:dark;--bg:#070c16;--paper:#101b2b;--muted:#94a6b9;--border:#274052;--accent:#70e0d5;--blue:#8fb7ff;--text:#f3f8ff;--red:#ff9b9b;--gold:#efd49f}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 15% 0,#183547 0,transparent 36%),linear-gradient(160deg,#070d17,#111b2c);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text);min-height:100vh}main{max-width:1200px;margin:auto;padding:20px 20px 65px}header{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:30px}.brand{display:flex;align-items:center;gap:13px;text-decoration:none;color:inherit;font-weight:750}.mark{display:grid;place-items:center;width:42px;height:42px;border:1px solid #79d6e9;border-radius:13px;background:linear-gradient(135deg,#183b5e,#143b41);font-size:21px;font-weight:900;color:var(--accent)}.brand small{display:block;font-weight:500;color:var(--muted);font-size:11px;letter-spacing:.12em;text-transform:uppercase}nav{display:flex;flex-wrap:wrap;gap:10px}a{color:var(--accent)}nav a{border:1px solid var(--border);color:var(--text);text-decoration:none;border-radius:11px;padding:8px 13px}nav a:hover{border-color:var(--accent)}h1{font-size:clamp(30px,5vw,54px);line-height:1.06;letter-spacing:-.035em;margin:0 0 13px}.intro{max-width:800px;color:var(--muted);margin:0 0 22px}.kicker{font-weight:800;color:var(--accent);font-size:12px;letter-spacing:.18em;text-transform:uppercase;margin:0 0 12px}.panel{background:linear-gradient(160deg,rgba(17,30,48,.98),rgba(9,20,33,.96));border:1px solid var(--border);border-radius:19px;padding:20px;margin:20px 0;box-shadow:0 14px 35px #0002}.warning{border-left:3px solid var(--gold);padding:13px 16px;background:#ddab4233;color:#f8e8bf;border-radius:0 12px 12px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:13px}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between}h2{font-size:19px;margin:0 0 14px}p{margin:9px 0}.mini,small{font-size:12px;color:var(--muted)}label{font-size:12px;color:var(--muted);display:block;margin-bottom:7px;font-weight:650;letter-spacing:.025em}input,select{width:100%;background:#081625;border:1px solid #3c5268;border-radius:10px;color:var(--text);padding:11px;font:inherit;min-height:44px}input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}button{cursor:pointer;background:var(--accent);color:#061826;border:0;border-radius:10px;min-height:43px;padding:10px 17px;font-weight:760}button.secondary{background:#21384a;color:var(--text);border:1px solid #436579}button:disabled{opacity:.45;cursor:not-allowed}.tablewrap{overflow:auto;border:1px solid var(--border);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:670px}thead{background:#1b3245}th,td{padding:12px 10px;text-align:left;font-size:13px;border-bottom:1px solid var(--border)}th{color:#cde0ee;font-size:11px;text-transform:uppercase;letter-spacing:.04em}td{font-variant-numeric:tabular-nums}.pill{display:inline-block;font-size:11px;border:1px solid #47847e;border-radius:30px;padding:3px 8px;color:#99e6d3}.bad{color:var(--red);border-color:#985454}.unverified{color:var(--gold);border-color:#8c7455}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.stat{padding:15px;background:#0a1725;border:1px solid var(--border);border-radius:14px}.stat strong{font-size:clamp(20px,3vw,31px);display:block;word-break:break-word}.stat small{display:block}.negative{color:var(--red)}.positive{color:var(--accent)}.selected{color:var(--blue);font-weight:750}footer{padding-top:30px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}@media(max-width:650px){main{padding:15px 12px 50px}.panel{padding:14px;margin:15px 0}.cards{grid-template-columns:1fr}.stat strong{font-size:26px}nav a{font-size:13px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<a class="brand" href="./index.html" aria-label="Back to FOMO Quant Screen"><span class="mark">Q</span><span>FOMO QUANT SCREEN<small>Created by Proof &amp; Signal</small></span></a>
+<nav><a href="./index.html">Quant Screen</a><a href="./bybit-shadow-preview.html">Bybit Reference</a><a href="#sources">Market Sources</a><a href="#calculator">Profit Calculator</a></nav>
+</header>
+<section>
+<p class="kicker">Read-only Research Lab · Six Venue Adapters</p>
+<h1>Know your source.<br>Model your outcome.</h1>
+<p class="intro">Inspect spot bid/ask snapshots from six exchanges, see source and quote freshness, then run a hypothetical directional net-profit calculation. No orders. No account access. No signals. No PAPER qualification.</p>
+<div class="warning"><strong>Financial controls locked.</strong> This is a draft research module, not a guaranteed-profit calculator. Top-of-book prices are not proof of fill, depth, borrowing or financing. USD and USDT are different quote assets and must not be compared or converted without verified FX evidence.</div>
+</section>
+<section class="panel" id="sources">
+<div class="row"><div><p class="kicker">Evidence first</p><h2>Exchange source monitor</h2></div><div class="row"><label for="asset">Asset</label><select id="asset" style="width:115px"><option>BTC</option><option>ETH</option><option>SOL</option></select><button id="refresh">Refresh all six</button></div></div>
+<p class="mini" id="scan-status" role="status" aria-live="polite">Not loaded. Public quotes are requested only after clicking Refresh.</p>
+<div class="tablewrap"><table><thead><tr><th>Venue / market</th><th>Bid</th><th>Ask</th><th>Source time</th><th>Evidence</th><th>Action</th></tr></thead><tbody id="venues"><tr><td colspan="6">No live quotes requested yet.</td></tr></tbody></table></div>
+<p class="mini">Source status means the current *browser session* can retrieve and validate the API response. It does not verify legal trading eligibility, available liquidity, or exchange-side matching. Blocked API, stale timestamp, invalid schema, CORS or georestriction → VERIFY. USD venues: Kraken, Coinbase Exchange, Gemini. USDT venues: Bybit, OKX, KuCoin.</p>
+</section>
+<section class="panel" id="calculator">
+<div class="row"><div><p class="kicker">Scenario only · no orders</p><h2>Profit Calculator</h2></div><span class="pill unverified" id="calc-status">VERIFY · select source</span></div>
+<div class="grid">
+<div><label for="chosen">Quote source</label><select id="chosen"><option value="">Select observed source</option></select></div>
+<div><label for="direction">Position direction</label><select id="direction"><option value="LONG">LONG</option><option value="SHORT">SHORT (hypothetical; borrowing not verified)</option></select></div>
+<div><label for="notional">Entry notional (quote currency)</label><input id="notional" type="number" min="1" max="1000000" step="any" value="1000"></div>
+<div><label for="exit">Hypothetical exit bid (LONG) / ask (SHORT)</label><input id="exit" type="number" min="0" step="any" placeholder="Set hypothetical exit"></div>
+<div><label for="fee-in">Entry fee (bps, assumed)</label><input id="fee-in" type="number" min="0" max="1000" value="10" step="any"></div>
+<div><label for="fee-out">Exit fee (bps, assumed)</label><input id="fee-out" type="number" min="0" max="1000" value="10" step="any"></div>
+<div><label for="slip-in">Entry slippage (bps, assumed)</label><input id="slip-in" type="number" min="0" max="1000" value="5" step="any"></div>
+<div><label for="slip-out">Exit slippage (bps, assumed)</label><input id="slip-out" type="number" min="0" max="1000" value="5" step="any"></div>
+<div><label for="other">Other costs (quote currency, assumed)</label><input id="other" type="number" min="0" value="0" step="any"></div>
+</div>
+<div class="row" style="justify-content:flex-start;margin-top:18px"><button id="calculate">Calculate hypothetical net</button><button id="export" class="secondary" disabled>Export evidence JSON</button></div>
+<p class="mini" id="calc-message" role="status" aria-live="polite">Fee tiers, spread, slippage, financing and taxes are not auto-verified. No futures funding is included: these are SPOT reference markets. SHORT is only an analytical directional proxy, not an executable short-selling route.</p>
+<div class="cards" style="margin-top:15px">
+<div class="stat"><small>Conditional net (quote currency)</small><strong id="net">—</strong></div>
+<div class="stat"><small>Hypothetical ROI</small><strong id="roi">—</strong></div>
+<div class="stat"><small>Break-even exit (quote currency)</small><strong id="breakeven">—</strong></div>
+</div>
+<div class="tablewrap" style="margin-top:14px"><table><tbody id="breakdown"><tr><td colspan="2">No calculation.</td></tr></tbody></table></div>
+</section>
+<footer>FOMO Quant Screen · Created by Proof &amp; Signal · 2026 · Research Only · <strong>Security UNKNOWN · Paper eligibility unchanged · No real funds.</strong> Source/quote exports contain no credentials. Always check venue terms, region and instrument before considering use.</footer>
+</main>
+<script src="./quant-market-sources.js"></script><script src="./quant-profit-calc.js"></script><script src="./quant-market-lab.js"></script>
+</body>
+</html>
