@@ -27,7 +27,7 @@ const token={
   m:{price:0.001,liq:100000,mc:500000},
   f:{volUnit:3},
   s:{radar:82,copy:75,risk:40,ess:70},
-  securityGate:{status:'PASS'}, sec:{source:'birdeye:token_security',tokenAddress:'ABC123',chain:'solana',ts:Date.now(),freeze:false,top10:10,mutable:false},
+  securityGate:{status:'PASS'}, sec:{source:'birdeye:token_security',tokenAddress:'ABC123',chain:'solana',ts:Date.now(),freeze:false,top10:10,mutable:false,mintable:false,transferFee:false},
   reasons:[]
 };
 const approvedSecurity={...token.sec};
@@ -64,7 +64,7 @@ const sandbox={
   console
 };
 vm.createContext(sandbox);
-const securityStart=html.indexOf('function securityGateOf(t){');
+const securityStart=html.indexOf('function birdeyeSecurityEvidence(d,t,ts=Date.now()){');
 const securityEnd=html.indexOf('\nfunction download(',securityStart);
 assert.ok(securityStart>=0&&securityEnd>securityStart,'real securityGateOf source missing');
 vm.runInContext(html.slice(securityStart,securityEnd),sandbox,{timeout:1500});
