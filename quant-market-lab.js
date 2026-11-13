@@ -56,14 +56,14 @@ function render(){
  }
  if(quotes.some(q=>q.venue===before&&q.status==='OBSERVED_QUOTE'))picker.value=before;
  const ok=quotes.filter(q=>q.status==='OBSERVED_QUOTE').length;
- $('scan-status').textContent=ok+'/6 public spot sources returned structurally valid bid/ask in this browser. '+
+ $('scan-status').textContent=ok+'/'+api.NAMES.length+' public spot sources returned structurally valid bid/ask in this browser. '+
    'Quoted data is indicative, non-atomic and not executable. Unavailable/blocked remain VERIFY.';
 }
 async function scan(){
  if(scanning)return;scanning=true;
  $('refresh').disabled=true;disableOutcome('Refreshing source snapshots; prior inputs cannot be carried forward as fresh execution evidence.');
- quotes=[];$('venues').replaceChildren();cell($('venues').insertRow(), 'Fetching six public sources...');
- $('scan-status').textContent='FETCHING · independently checking each public API and quote currency...';
+ quotes=[];$('venues').replaceChildren();cell($('venues').insertRow(), 'Fetching seven configured public sources...');
+ $('scan-status').textContent='FETCHING · independently checking '+api.NAMES.length+' public APIs and quote currencies...';
  try{quotes=await api.scan($('asset').value);render();}
  catch(e){$('scan-status').textContent='VERIFY · '+String(e.message||e).slice(0,150);}
  finally{scanning=false;$('refresh').disabled=false;}
