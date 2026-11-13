@@ -180,6 +180,16 @@
   function boot() {
     var button = document.getElementById('bybitShadowRefresh'), picker = document.getElementById('bybitShadowSymbol');
     if (!button || !picker) return;
+    // Navigation only: the research calculator has no access to this adapter's
+    // PAPER, scoring, credential or order pathways.
+    if (!document.getElementById('fomoQuantMarketLabLink')) {
+      var link = document.createElement('a');
+      link.id = 'fomoQuantMarketLabLink';
+      link.href = './quant-market-lab.html';
+      link.textContent = 'Explore 6-Exchange Profit Calculator';
+      link.style.cssText = 'display:inline-block;margin:10px 0 6px;padding:8px 12px;border:1px solid #5899a3;border-radius:10px;color:#a9f5e6;text-decoration:none;font-weight:650';
+      button.parentElement.appendChild(link);
+    }
     button.addEventListener('click', refresh);
     picker.addEventListener('change', function () { latest = null; text('bybitShadowStatus', 'NOT LOADED · press REFRESH'); document.getElementById('bybitShadowOutput').replaceChildren(); document.getElementById('bybitShadowExport').disabled = true; });
     document.getElementById('bybitShadowExport').addEventListener('click', exportSnapshot);
