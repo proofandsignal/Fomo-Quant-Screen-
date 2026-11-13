@@ -1,5 +1,5 @@
 /* FOMO Quant Market Sources v0.1 — public spot bid/ask, read only.
- * Seven provider adapters with one availability fallback. Configured is NOT live verified.
+ * Eight provider adapters with availability checks. Configured is NOT live verified.
  * USD and USDT are separate quote units: never convert or rank across them.
  * One symbol per source per explicit on-demand fetch; no API keys or orders.
  */
@@ -10,10 +10,10 @@
 })(typeof window!=='undefined'?window:null,function(){
   'use strict';
   const ALLOWED=['BTC','ETH','SOL'];
-  const NAMES=['Kraken','Coinbase Exchange','Gemini','Bybit','OKX','KuCoin','Gate.io'];
+  const NAMES=['Kraken','Coinbase Exchange','Gemini','Bybit','OKX','KuCoin','Gate.io','Bitfinex'];
   const MAX_AGE_MS=120000;
   const FRESH_EPS_MS=30000;
-  const currencies={Kraken:'USD','Coinbase Exchange':'USD',Gemini:'USD',Bybit:'USDT',OKX:'USDT',KuCoin:'USDT','Gate.io':'USDT'};
+  const currencies={Kraken:'USD','Coinbase Exchange':'USD',Gemini:'USD',Bybit:'USDT',OKX:'USDT',KuCoin:'USDT','Gate.io':'USDT',Bitfinex:'USD'};
   function positive(x){ if(x===null||x===undefined||x==='')return null; const n=Number(x);return Number.isFinite(n)&&n>0?n:null; }
   function timestamp(x){
     if(typeof x==='string' && x.trim() && !/^\d+$/.test(x)) { const d=Date.parse(x); return Number.isFinite(d)?d:null; }
@@ -31,6 +31,7 @@
       case 'OKX':return 'https://www.okx.com/api/v5/market/ticker?instId='+asset+'-USDT';
       case 'KuCoin':return 'https://api.kucoin.com/api/v1/market/orderbook/level1?symbol='+asset+'-USDT';
       case 'Gate.io':return 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair='+asset+'_USDT';
+      case 'Bitfinex':return 'https://api-pub.bitfinex.com/v2/ticker/t'+usd;
     }
   }
   function normalize(name,asset,payload,receivedAt){
@@ -81,6 +82,12 @@
         if(rows.length!==1)throw Error('Gate exact symbol mismatch');
         bid=rows[0].highest_bid;ask=rows[0].lowest_ask;
         rawSymbol=asset+'_USDT';break;
+      }
+      case 'Bitfinex':{
+        // Official /v2/ticker/tBTCUSD array = bid, bid_size, ask, ask_size, ...
+        if(!Array.isArray(payload)||payload.length<10)throw Error('Bitfinex ticker schema invalid');
+        bid=payload[0];ask=payload[2];
+        rawSymbol='t'+asset+'USD';break;
       }
     }
     bid=positive(bid);ask=positive(ask);
