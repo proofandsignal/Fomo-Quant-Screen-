@@ -33,7 +33,7 @@ test('six exact source adapters and currencies, valid quote data',()=>{
 test('all three allowlisted assets generate exact exchange pair request',()=>{
  for(const symbol of ['BTC','ETH','SOL']){
   for(const name of adapters.NAMES)assert.ok(adapters.urlFor(name,symbol).includes(symbol)
-   || (name==='Gemini'&&adapters.urlFor(name,symbol).includes(symbol.toLowerCase())));
+   || (['Gemini','HTX'].includes(name)&&adapters.urlFor(name,symbol).includes(symbol.toLowerCase())));
  }
  assert.throws(()=>adapters.urlFor('Binance','BTC'));
  assert.throws(()=>adapters.urlFor('Kraken','DOGE'));
