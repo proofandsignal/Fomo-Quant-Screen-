@@ -14,7 +14,7 @@ const token={chain:'solana',address:'ABC123'};
 const now=Date.now();
 const base={
   freezeable:null,freezeAuthority:null,ownerAddress:null,
-  top10HolderPercent:0.10,mutableMetadata:false,transferFeeEnable:null
+  top10HolderPercent:0.10,mutableMetadata:false,transferFeeEnable:false
 };
 function status(raw, ts=now, tok=token){
   const t={...tok,sec:normalize(raw,tok,ts)};
@@ -33,6 +33,7 @@ for(const [name,raw] of [
   ['wrong freezeAuthority',({...base,freezeAuthority:123})],
   ['absent ownerAddress',({...base,ownerAddress:undefined})],
   ['absent transfer fee',({...base,transferFeeEnable:undefined})],
+  ['unknown transfer fee',({...base,transferFeeEnable:null})],
   ['unknown metadata',({...base,mutableMetadata:null})],
   ['missing concentration',({...base,top10HolderPercent:undefined})],
   ['invalid concentration > 1',({...base,top10HolderPercent:1.1})],
