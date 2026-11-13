@@ -38,7 +38,7 @@
   }
   function normalize(name,asset,payload,receivedAt){
     if(!NAMES.includes(name)||!ALLOWED.includes(asset))throw Error('Unknown source identity');
-    const symbol=asset+'/'+currencies[name], fetched=timestamp(receivedAt);
+    const usdt=asset+'USDT', symbol=asset+'/'+currencies[name], fetched=timestamp(receivedAt);
     if(fetched===null)throw Error('No valid receipt timestamp');
     let bid,ask,providerAt=null,providerTimeKind='UNAVAILABLE',rawSymbol='';
     switch(name){
