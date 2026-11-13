@@ -1,5 +1,5 @@
 /* FOMO Quant Market Sources v0.1 — public spot bid/ask, read only.
- * Eight provider adapters with availability checks. Configured is NOT live verified.
+ * Ten provider adapters with availability checks. Configured is NOT live verified.
  * USD and USDT are separate quote units: never convert or rank across them.
  * One symbol per source per explicit on-demand fetch; no API keys or orders.
  */
@@ -10,10 +10,10 @@
 })(typeof window!=='undefined'?window:null,function(){
   'use strict';
   const ALLOWED=['BTC','ETH','SOL'];
-  const NAMES=['Kraken','Coinbase Exchange','Gemini','Bybit','OKX','KuCoin','Gate.io','Bitfinex'];
+  const NAMES=['Kraken','Coinbase Exchange','Gemini','Bybit','OKX','KuCoin','Gate.io','Bitfinex','HTX','Crypto.com Exchange'];
   const MAX_AGE_MS=120000;
   const FRESH_EPS_MS=30000;
-  const currencies={Kraken:'USD','Coinbase Exchange':'USD',Gemini:'USD',Bybit:'USDT',OKX:'USDT',KuCoin:'USDT','Gate.io':'USDT',Bitfinex:'USD'};
+  const currencies={Kraken:'USD','Coinbase Exchange':'USD',Gemini:'USD',Bybit:'USDT',OKX:'USDT',KuCoin:'USDT','Gate.io':'USDT',Bitfinex:'USD',HTX:'USDT','Crypto.com Exchange':'USDT'};
   function positive(x){ if(x===null||x===undefined||x==='')return null; const n=Number(x);return Number.isFinite(n)&&n>0?n:null; }
   function timestamp(x){
     if(typeof x==='string' && x.trim() && !/^\d+$/.test(x)) { const d=Date.parse(x); return Number.isFinite(d)?d:null; }
@@ -32,6 +32,8 @@
       case 'KuCoin':return 'https://api.kucoin.com/api/v1/market/orderbook/level1?symbol='+asset+'-USDT';
       case 'Gate.io':return 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair='+asset+'_USDT';
       case 'Bitfinex':return 'https://api-pub.bitfinex.com/v2/ticker/t'+usd;
+      case 'HTX':return 'https://api.huobi.pro/market/detail/merged?symbol='+usdt.toLowerCase();
+      case 'Crypto.com Exchange':return 'https://api.crypto.com/exchange/v1/public/get-tickers?instrument_name='+asset+'_USDT';
     }
   }
   function normalize(name,asset,payload,receivedAt){
@@ -88,6 +90,24 @@
         if(!Array.isArray(payload)||payload.length<10)throw Error('Bitfinex ticker schema invalid');
         bid=payload[0];ask=payload[2];
         rawSymbol='t'+asset+'USD';break;
+      }
+      case 'HTX':{
+        if(!payload||payload.status!=='ok'||payload.ch!=='market.'+usdt.toLowerCase()+'.detail.merged'||
+           !payload.tick||!Array.isArray(payload.tick.bid)||!Array.isArray(payload.tick.ask))
+          throw Error('HTX exact merged spot ticker invalid');
+        bid=payload.tick.bid[0];ask=payload.tick.ask[0];
+        providerAt=timestamp(payload.ts);providerTimeKind='PROVIDER_RESPONSE_TIME';
+        rawSymbol=usdt.toLowerCase();break;
+      }
+      case 'Crypto.com Exchange':{
+        if(!payload||Number(payload.code)!==0||payload.method!=='public/get-tickers'||
+           !payload.result||!Array.isArray(payload.result.data))
+          throw Error('Crypto.com Exchange spot ticker schema invalid');
+        const rows=payload.result.data.filter(x=>x&&x.i===asset+'_USDT');
+        if(rows.length!==1)throw Error('Crypto.com exact spot instrument missing');
+        bid=rows[0].b;ask=rows[0].k;
+        providerAt=timestamp(rows[0].t);providerTimeKind='TICKER_TIMESTAMP';
+        rawSymbol=asset+'_USDT';break;
       }
     }
     bid=positive(bid);ask=positive(ask);
