@@ -124,6 +124,34 @@ def live_browser(browser):
       return {url:location.href, status:document.querySelector("#scan-status").textContent,
         rows:t.map(r=>({text:r.innerText.slice(0,440),url:r.querySelector("a")?.href||null}))};
     }""")
+    # Probe additional OFFICIAL public providers, only to discover browser CORS
+    # compatibility. No provider is displayed as active until independently
+    # mapped, normalized and regression-tested in a separate code change.
+    candidate_urls = {
+        "HTX": "https://api.huobi.pro/market/detail/merged?symbol=btcusdt",
+        "CoinEx": "https://api.coinex.com/v2/spot/ticker?market=BTCUSDT",
+        "Crypto.com Exchange": "https://api.crypto.com/exchange/v1/public/get-tickers?instrument_name=BTC_USDT",
+        "MEXC": "https://api.mexc.com/api/v3/ticker/bookTicker?symbol=BTCUSDT",
+        "Bitstamp": "https://www.bitstamp.net/api/v2/ticker/btcusd/",
+        "Bitget": "https://api.bitget.com/api/v2/spot/market/tickers?symbol=BTCUSDT",
+    }
+    result["candidate_cors_probe"] = page.evaluate("""async (urls) => {
+      return await Promise.all(Object.entries(urls).map(async ([name,url]) => {
+        const c = new AbortController();
+        const t = setTimeout(()=>c.abort(),7000);
+        try {
+          const r = await fetch(url,{mode:"cors",credentials:"omit",cache:"no-store",signal:c.signal});
+          let obj = await r.json().catch(()=>null);
+          const ok = r.ok && obj !== null;
+          return {name,url,http:r.status,cors:ok?"FETCH_RECEIVED":"BAD_HTTP_OR_JSON",
+            shape:Array.isArray(obj)?"array":typeof obj,
+            keys:obj && !Array.isArray(obj)?Object.keys(obj).slice(0,9):[],
+            itemCount:Array.isArray(obj)?obj.length:null};
+        } catch (e) {
+          return {name,url,cors:"VERIFY",reason:String(e.message||e).slice(0,130)};
+        } finally { clearTimeout(t); }
+      }));
+    }""", candidate_urls)
     result["captured_at_utc"]=datetime.now(timezone.utc).isoformat()
     result["origin_kind"]="LOOPBACK_CHROMIUM_NOT_PROTECTED_HTTPS"
     result["browser_console_errors"]=errors[:20]
