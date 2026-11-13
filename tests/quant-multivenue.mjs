@@ -12,16 +12,17 @@ const cases={
  'Bybit':{retCode:0,time:now,result:{category:'spot',list:[{symbol:'BTCUSDT',bid1Price:'100',ask1Price:'101'}]}},
  'OKX':{code:'0',data:[{instType:'SPOT',instId:'BTC-USDT',bidPx:'100',askPx:'101',ts:String(now)}]},
  'KuCoin':{code:'200000',data:{bestBid:'100',bestAsk:'101',time:now}},
- 'Gate.io':[{currency_pair:'BTC_USDT',highest_bid:'100',lowest_ask:'101'}]
+ 'Gate.io':[{currency_pair:'BTC_USDT',highest_bid:'100',lowest_ask:'101'}],
+ 'Bitfinex':[100,1,101,1,0,0,100.5,100,102,99]
 };
 const result=name=>adapters.normalize(name,'BTC',cases[name],now);
 test('six exact source adapters and currencies, valid quote data',()=>{
- assert.equal(adapters.NAMES.length,7);
+ assert.equal(adapters.NAMES.length,8);
  for(const name of adapters.NAMES){
   const q=result(name);
   assert.equal(q.status,'OBSERVED_QUOTE',name);
   assert.equal(q.bid,100);assert.equal(q.ask,101);
-  assert.equal(q.quoteCurrency,['Kraken','Coinbase Exchange','Gemini'].includes(name)?'USD':'USDT');
+  assert.equal(q.quoteCurrency,['Kraken','Coinbase Exchange','Gemini','Bitfinex'].includes(name)?'USD':'USDT');
   assert.equal(q.economicStatus,'VERIFY');
   assert.equal(q.asset,'BTC');
   assert.match(q.sourceUrl,/^https:\/\//);
@@ -53,9 +54,9 @@ test('concurrent six-adapter scan never invents blocked source quotes',async()=>
   const name=adapters.NAMES.find(x=>adapters.urlFor(x,'BTC')===url);
   return {ok:true,json:async()=>cases[name]};
  },()=>now);
- assert.equal(snapshots.length,7);
+ assert.equal(snapshots.length,8);
  assert.equal(snapshots.find(x=>x.venue==='Bybit').status,'VERIFY');
- assert.equal(snapshots.filter(x=>x.status==='OBSERVED_QUOTE').length,6);
+ assert.equal(snapshots.filter(x=>x.status==='OBSERVED_QUOTE').length,7);
 });
 test('long PnL deducts entry and exit taker fees on actual scenario notional',()=>{
  const x=profit.calc({source:result('Kraken'),side:'LONG',notional:1000,
