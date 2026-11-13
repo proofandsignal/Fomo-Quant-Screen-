@@ -533,7 +533,7 @@ function birdeyeSecurityEvidence(d,t,ts=Date.now()){
       if((f===null||typeof f==='boolean')&&(a===null||addr(a))) freeze=(f===true||a!==null);
     }
     if(has('ownerAddress')&&(d.ownerAddress===null||addr(d.ownerAddress))) mintable=d.ownerAddress!==null;
-    if(has('transferFeeEnable')&&(d.transferFeeEnable===null||typeof d.transferFeeEnable==='boolean')) transferFee=d.transferFeeEnable===true;
+    if(has('transferFeeEnable')&&typeof d.transferFeeEnable==='boolean') transferFee=d.transferFeeEnable;
     if(typeof d.top10HolderPercent==='number'&&Number.isFinite(d.top10HolderPercent)&&d.top10HolderPercent>=0&&d.top10HolderPercent<=1) top10=d.top10HolderPercent*100;
     if(typeof d.mutableMetadata==='boolean') mutable=d.mutableMetadata;
   }
@@ -860,7 +860,7 @@ async function srcBE() {
   }
   if (API.due('beSec', 60000)) {
     const now = Clock.now();
-    const c = [...S.tokens.values()].filter(t => t.s && t.s.radar >= CFG.gates.qualify && (!t.sec || now - t.sec.ts > 1800000)).sort((a, b) => b.s.radar - a.s.radar).slice(0, 2);
+    const c = [...S.tokens.values()].filter(t => t.s && t.s.radar >= CFG.gates.qualify && (!t.sec || !Number.isFinite(t.sec.ts) || t.sec.ts > now || now - t.sec.ts > 10*60000)).sort((a, b) => b.s.radar - a.s.radar).slice(0, 2);
     for (const t of c) {
       const j = await API.get('BE', `${beBase()}/defi/token_security?address=${t.address}`, { headers: H(t.chain) });
       const d = j?.success===true ? j.data : null;
@@ -1277,7 +1277,19 @@ const Paper = {
     }
   },
   open(t, how) {
-    const now = Clock.now(), m = t.m; if (!m || !t.f) return null;
+    const now = Clock.now(), m = t?.m; if (!t || !m || !t.f) return null;
+    // Re-evaluate immediately before EVERY live-mode PAPER entry (auto and manual).
+    // A stale cached ALLOW decision, imported security snapshot, or changed token
+    // must never count as an eligible PAPER entry. SIM remains synthetic/ephemeral.
+    if (CFG.mode !== 'sim') {
+      const sg = securityGateOf(t);
+      const marketTs = m.updated;
+      if (sg.status !== 'PASS' || t.decision !== 'ALLOW PAPER' || t.entryState !== 'IN ZONE' || !t.plan ||
+          !Number.isFinite(marketTs) || marketTs > now || now - marketTs > 120000) {
+        Log.add('WARN','PAPER','ENTRY_BLOCKED',t.symbol+': security '+sg.status+' or market/decision/entry unverified',t.key);
+        return null;
+      }
+    }
     if([...S.paper.open,...S.paper.closed].some(p=>p.key===t.key && Math.abs(now-(p.openedAt||0))<3600000)){
       Log.add('WARN','PAPER','DUPLICATE_REJECTED',t.symbol+': repeat token/pair within 60m',t.key);
       return null;
