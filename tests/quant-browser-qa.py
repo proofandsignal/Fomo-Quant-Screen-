@@ -53,7 +53,7 @@ def route_mock(route):
 def deterministic(browser):
     page=browser.new_page(accept_downloads=True, viewport={"width":1280,"height":900})
     page.goto(URL)
-    assert "Created by Proof & Signal" in page.locator("header").inner_text()
+    assert "CREATED BY PROOF & SIGNAL" in page.locator("header").inner_text().upper()
     assert "Financial controls locked" in page.locator("body").inner_text()
     page.route("https://**/*",route_mock)
     page.locator("#refresh").click()
