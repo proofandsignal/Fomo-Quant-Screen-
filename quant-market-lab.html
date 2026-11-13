@@ -16,16 +16,16 @@
 <nav><a href="./index.html">Quant Screen</a><a href="./bybit-shadow-preview.html">Bybit Reference</a><a href="#sources">Market Sources</a><a href="#calculator">Profit Calculator</a></nav>
 </header>
 <section>
-<p class="kicker">Read-only Research Lab · Seven Venue Adapters · Six Active Target</p>
+<p class="kicker">Read-only Research Lab · Eight Venue Adapters · Six Active Target</p>
 <h1>Know your source.<br>Model your outcome.</h1>
-<p class="intro">Inspect spot bid/ask snapshots from seven configured exchanges, see source and quote freshness, then run a hypothetical directional net-profit calculation. No orders. No account access. No signals. No PAPER qualification.</p>
+<p class="intro">Inspect spot bid/ask snapshots from eight configured exchanges, see source and quote freshness, then run a hypothetical directional net-profit calculation. No orders. No account access. No signals. No PAPER qualification.</p>
 <div class="warning"><strong>Financial controls locked.</strong> This is a draft research module, not a guaranteed-profit calculator. Top-of-book prices are not proof of fill, depth, borrowing or financing. USD and USDT are different quote assets and must not be compared or converted without verified FX evidence.</div>
 </section>
 <section class="panel" id="sources">
 <div class="row"><div><p class="kicker">Evidence first</p><h2>Exchange source monitor</h2></div><div class="row"><label for="asset">Asset</label><select id="asset" style="width:115px"><option>BTC</option><option>ETH</option><option>SOL</option></select><button id="refresh">Refresh exchanges</button></div></div>
 <p class="mini" id="scan-status" role="status" aria-live="polite">Not loaded. Public quotes are requested only after clicking Refresh.</p>
 <div class="tablewrap"><table><thead><tr><th>Venue / market</th><th>Bid</th><th>Ask</th><th>Source time</th><th>Evidence</th><th>Action</th></tr></thead><tbody id="venues"><tr><td colspan="6">No public quotes requested yet.</td></tr></tbody></table></div>
-<p class="mini">Source status means the current *browser session* can retrieve and validate the API response. It does not verify legal trading eligibility, available liquidity, or exchange-side matching. Blocked API, stale timestamp, invalid schema, CORS or georestriction → VERIFY. USD venues: Kraken, Coinbase Exchange, Gemini. USDT venues: Bybit, OKX, KuCoin, Gate.io. At least six of seven must pass real per-source QA for the target; Bybit HTTP 403 remains VERIFY where blocked.</p>
+<p class="mini">Source status means the current *browser session* can retrieve and validate the API response. It does not verify legal trading eligibility, available liquidity, or exchange-side matching. Blocked API, stale timestamp, invalid schema, CORS or georestriction → VERIFY. USD venues: Kraken, Coinbase Exchange, Gemini. USDT venues: Bybit, OKX, KuCoin, Gate.io. Another USD reference: Bitfinex. At least six of eight must pass real per-source QA for the target; Bybit HTTP 403 remains VERIFY where blocked.</p>
 </section>
 <section class="panel" id="calculator">
 <div class="row"><div><p class="kicker">Scenario only · no orders</p><h2>Profit Calculator</h2></div><span class="pill unverified" id="calc-status">VERIFY · select source</span></div>
