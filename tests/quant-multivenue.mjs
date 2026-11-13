@@ -13,11 +13,13 @@ const cases={
  'OKX':{code:'0',data:[{instType:'SPOT',instId:'BTC-USDT',bidPx:'100',askPx:'101',ts:String(now)}]},
  'KuCoin':{code:'200000',data:{bestBid:'100',bestAsk:'101',time:now}},
  'Gate.io':[{currency_pair:'BTC_USDT',highest_bid:'100',lowest_ask:'101'}],
- 'Bitfinex':[100,1,101,1,0,0,100.5,100,102,99]
+ 'Bitfinex':[100,1,101,1,0,0,100.5,100,102,99],
+ 'HTX':{status:'ok',ch:'market.btcusdt.detail.merged',ts:now,tick:{bid:[100,1],ask:[101,1]}},
+ 'Crypto.com Exchange':{method:'public/get-tickers',code:0,result:{data:[{i:'BTC_USDT',b:'100',k:'101',t:now}]}}
 };
 const result=name=>adapters.normalize(name,'BTC',cases[name],now);
 test('six exact source adapters and currencies, valid quote data',()=>{
- assert.equal(adapters.NAMES.length,8);
+ assert.equal(adapters.NAMES.length,10);
  for(const name of adapters.NAMES){
   const q=result(name);
   assert.equal(q.status,'OBSERVED_QUOTE',name);
@@ -54,9 +56,9 @@ test('concurrent six-adapter scan never invents blocked source quotes',async()=>
   const name=adapters.NAMES.find(x=>adapters.urlFor(x,'BTC')===url);
   return {ok:true,json:async()=>cases[name]};
  },()=>now);
- assert.equal(snapshots.length,8);
+ assert.equal(snapshots.length,10);
  assert.equal(snapshots.find(x=>x.venue==='Bybit').status,'VERIFY');
- assert.equal(snapshots.filter(x=>x.status==='OBSERVED_QUOTE').length,7);
+ assert.equal(snapshots.filter(x=>x.status==='OBSERVED_QUOTE').length,9);
 });
 test('long PnL deducts entry and exit taker fees on actual scenario notional',()=>{
  const x=profit.calc({source:result('Kraken'),side:'LONG',notional:1000,
