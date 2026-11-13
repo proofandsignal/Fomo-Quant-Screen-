@@ -57,3 +57,11 @@ This is NOT a full CI PASS. Independent review and pinned-source gate remain ope
 - LIVE CAPITAL and PAPER eligibility remain separately locked; test PASS does not authorize either.
 
 **Gate:** SECURITY SOURCE MAPPING IMPROVED → EXACT-SOURCE CONTRACT TEST PASS → INDEPENDENT REVIEW PENDING → FULL CI REBASELINE HOLD → HTTPS/SAMSUNG QA PENDING → HUMAN APPROVAL PENDING.
+
+## Follow-up review delta — 2026-11-13 (separate commit after baseline above)
+
+- Provider documentation: explicit null **ownerAddress/freezeAuthority** may mean inactive; **other null evidence remains UNKNOWN**. `transferFeeEnable:null` is now UNKNOWN, not false; `transferFeeEnable:false` is the observed no-fee fixture.
+- `Paper.open` revalidates the current Security Gate and receipt-time market freshness for both manual and automatic **LIVE-mode** paper entries; cached `ALLOW PAPER` alone is insufficient. The standalone SIM demonstration remains synthetic and bypasses live evidence gates; it does not count toward eligible PAPER.
+- Tests cover unknown/active security, stale/future market snapshots and cached decision or entry-zone changes. Security refresh candidates are now retried after >10 minutes rather than >30 minutes, ahead of the 15-minute gate expiry.
+- **Limit:** read-only, client-side receipt timestamps are not source-origin timestamps. Browser-local records are not independent proof of market data or actual fills.
+- **Reviewer action:** independently verify exact final HEAD and both PAPER paths before approving any fingerprint change. **No fingerprint change or CI bypass has been authorized.**
