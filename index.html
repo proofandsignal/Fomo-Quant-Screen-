@@ -520,15 +520,36 @@ function agreementOf(t){
   if(qd==='NO TRADE' && rd==='WATCH') return 'STRONG';
   return 'PARTIAL';
 }
+// Birdeye Solana /defi/token_security: explicit null authorities mean inactive;
+// missing fields, malformed values and unreviewed other-chain schemas mean UNKNOWN.
+// 'ts' records local retrieval time, NOT an independently verified on-chain timestamp.
+function birdeyeSecurityEvidence(d,t,ts=Date.now()){
+  const has=k=>d!=null&&typeof d==='object'&&!Array.isArray(d)&&Object.prototype.hasOwnProperty.call(d,k);
+  const addr=a=>typeof a==='string'&&/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a);
+  let freeze=null, mintable=null, transferFee=null, top10=null, mutable=null;
+  if(t.chain==='solana'&&d&&typeof d==='object'&&!Array.isArray(d)){
+    if(has('freezeable')&&has('freezeAuthority')){
+      const f=d.freezeable, a=d.freezeAuthority;
+      if((f===null||typeof f==='boolean')&&(a===null||addr(a))) freeze=(f===true||a!==null);
+    }
+    if(has('ownerAddress')&&(d.ownerAddress===null||addr(d.ownerAddress))) mintable=d.ownerAddress!==null;
+    if(has('transferFeeEnable')&&(d.transferFeeEnable===null||typeof d.transferFeeEnable==='boolean')) transferFee=d.transferFeeEnable===true;
+    if(typeof d.top10HolderPercent==='number'&&Number.isFinite(d.top10HolderPercent)&&d.top10HolderPercent>=0&&d.top10HolderPercent<=1) top10=d.top10HolderPercent*100;
+    if(typeof d.mutableMetadata==='boolean') mutable=d.mutableMetadata;
+  }
+  return {top10,freeze,mutable,mintable,transferFee,ts,source:'birdeye:token_security',tokenAddress:t.address,chain:t.chain};
+}
 function securityGateOf(t){
   const s=t.sec;
   if(!s) return {status:'UNKNOWN', reason:'security data missing'};
   if(s.source!=='birdeye:token_security'||s.tokenAddress!==t.address||s.chain!==t.chain||!Number.isFinite(s.ts)||s.ts>Date.now()||Date.now()-s.ts>15*60000) return {status:'UNKNOWN',reason:'security source, identity or freshness unverified'};
   if(s.freeze===true) return {status:'FAIL', reason:'freeze authority'};
-  if(s.freeze!==false || typeof s.top10!=='number' || !Number.isFinite(s.top10) || s.top10<0 || s.top10>100 || typeof s.mutable!=='boolean') return {status:'UNKNOWN', reason:'required security evidence missing or invalid'};
-  if(s.top10!=null && s.top10>40) return {status:'REVIEW', reason:`top10 holders ${Math.round(s.top10)}% > 40%`};
+  if(s.mintable===true) return {status:'FAIL', reason:'mint authority active'};
+  if(s.freeze!==false || s.mintable!==false || s.transferFee===null || typeof s.transferFee!=='boolean' || typeof s.top10!=='number' || !Number.isFinite(s.top10) || s.top10<0 || s.top10>100 || typeof s.mutable!=='boolean') return {status:'UNKNOWN', reason:'required security evidence missing or invalid'};
+  if(s.transferFee===true) return {status:'REVIEW', reason:'transfer fee enabled'};
+  if(s.top10>40) return {status:'REVIEW', reason:`top10 holders ${Math.round(s.top10)}% > 40%`};
   if(s.mutable) return {status:'REVIEW', reason:'mutable metadata'};
-  return {status:'PASS', reason:'security checks passed'};
+  return {status:'PASS', reason:'reviewed Birdeye risk fields passed (not independent on-chain audit)'};
 }
 
 function download(name, text, type = 'application/json') {
@@ -842,9 +863,9 @@ async function srcBE() {
     const c = [...S.tokens.values()].filter(t => t.s && t.s.radar >= CFG.gates.qualify && (!t.sec || now - t.sec.ts > 1800000)).sort((a, b) => b.s.radar - a.s.radar).slice(0, 2);
     for (const t of c) {
       const j = await API.get('BE', `${beBase()}/defi/token_security?address=${t.address}`, { headers: H(t.chain) });
-      const d = j?.data; if (!d) { if (j) schemaWarn('BE', 'token_security', j); continue; }
-      let top = num(d.top10HolderPercent, null); if (top != null && top <= 1.5) top *= 100;
-      t.sec = { top10: top, freeze: typeof d.freezeable==='boolean'&&typeof d.freezeAuthority==='boolean' ? (d.freezeable||d.freezeAuthority) : null, mutable: typeof d.mutableMetadata==='boolean' ? d.mutableMetadata : null, ts: now, source:'birdeye:token_security', tokenAddress:t.address, chain:t.chain };
+      const d = j?.success===true ? j.data : null;
+      if (!d || typeof d!=='object' || Array.isArray(d)) { if (j) schemaWarn('BE', 'token_security', j); continue; }
+      t.sec = birdeyeSecurityEvidence(d,t,Date.now());
     }
   }
 }
