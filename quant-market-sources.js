@@ -1,5 +1,5 @@
 /* FOMO Quant Market Sources v0.1 — public spot bid/ask, read only.
- * Six provider adapters. A configured adapter is NOT proof of live availability.
+ * Seven provider adapters with one availability fallback. Configured is NOT live verified.
  * USD and USDT are separate quote units: never convert or rank across them.
  * One symbol per source per explicit on-demand fetch; no API keys or orders.
  */
@@ -10,10 +10,10 @@
 })(typeof window!=='undefined'?window:null,function(){
   'use strict';
   const ALLOWED=['BTC','ETH','SOL'];
-  const NAMES=['Kraken','Coinbase Exchange','Gemini','Bybit','OKX','KuCoin'];
+  const NAMES=['Kraken','Coinbase Exchange','Gemini','Bybit','OKX','KuCoin','Gate.io'];
   const MAX_AGE_MS=120000;
   const FRESH_EPS_MS=30000;
-  const currencies={Kraken:'USD','Coinbase Exchange':'USD',Gemini:'USD',Bybit:'USDT',OKX:'USDT',KuCoin:'USDT'};
+  const currencies={Kraken:'USD','Coinbase Exchange':'USD',Gemini:'USD',Bybit:'USDT',OKX:'USDT',KuCoin:'USDT','Gate.io':'USDT'};
   function positive(x){ if(x===null||x===undefined||x==='')return null; const n=Number(x);return Number.isFinite(n)&&n>0?n:null; }
   function timestamp(x){
     if(typeof x==='string' && x.trim() && !/^\d+$/.test(x)) { const d=Date.parse(x); return Number.isFinite(d)?d:null; }
@@ -30,6 +30,7 @@
       case 'Bybit':return 'https://api.bybit.com/v5/market/tickers?category=spot&symbol='+usdt;
       case 'OKX':return 'https://www.okx.com/api/v5/market/ticker?instId='+asset+'-USDT';
       case 'KuCoin':return 'https://api.kucoin.com/api/v1/market/orderbook/level1?symbol='+asset+'-USDT';
+      case 'Gate.io':return 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair='+asset+'_USDT';
     }
   }
   function normalize(name,asset,payload,receivedAt){
@@ -73,6 +74,13 @@
         if(!payload||payload.code!=='200000'||!payload.data)throw Error('KuCoin schema invalid');
         bid=payload.data.bestBid;ask=payload.data.bestAsk;providerAt=timestamp(payload.data.time);
         providerTimeKind='QUOTE_TIMESTAMP';rawSymbol=asset+'-USDT';break;
+      }
+      case 'Gate.io':{
+        if(!Array.isArray(payload))throw Error('Gate spot ticker schema invalid');
+        const rows=payload.filter(x=>x&&x.currency_pair===asset+'_USDT');
+        if(rows.length!==1)throw Error('Gate exact symbol mismatch');
+        bid=rows[0].highest_bid;ask=rows[0].lowest_ask;
+        rawSymbol=asset+'_USDT';break;
       }
     }
     bid=positive(bid);ask=positive(ask);
