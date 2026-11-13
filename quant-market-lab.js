@@ -62,7 +62,7 @@ function render(){
 async function scan(){
  if(scanning)return;scanning=true;
  $('refresh').disabled=true;disableOutcome('Refreshing source snapshots; prior inputs cannot be carried forward as fresh execution evidence.');
- quotes=[];$('venues').replaceChildren();cell($('venues').insertRow(), 'Fetching seven configured public sources...');
+ quotes=[];$('venues').replaceChildren();cell($('venues').insertRow(), 'Fetching '+api.NAMES.length+' configured public sources...');
  $('scan-status').textContent='FETCHING · independently checking '+api.NAMES.length+' public APIs and quote currencies...';
  try{quotes=await api.scan($('asset').value);render();}
  catch(e){$('scan-status').textContent='VERIFY · '+String(e.message||e).slice(0,150);}
