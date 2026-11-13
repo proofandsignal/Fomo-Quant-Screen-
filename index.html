@@ -525,7 +525,7 @@ function securityGateOf(t){
   if(!s) return {status:'UNKNOWN', reason:'security data missing'};
   if(s.source!=='birdeye:token_security'||s.tokenAddress!==t.address||s.chain!==t.chain||!Number.isFinite(s.ts)||s.ts>Date.now()||Date.now()-s.ts>15*60000) return {status:'UNKNOWN',reason:'security source, identity or freshness unverified'};
   if(s.freeze===true) return {status:'FAIL', reason:'freeze authority'};
-  if(s.freeze!==false || !Number.isFinite(Number(s.top10)) || s.top10==null || typeof s.mutable!=='boolean') return {status:'UNKNOWN', reason:'required security evidence missing'};
+  if(s.freeze!==false || typeof s.top10!=='number' || !Number.isFinite(s.top10) || s.top10<0 || s.top10>100 || typeof s.mutable!=='boolean') return {status:'UNKNOWN', reason:'required security evidence missing or invalid'};
   if(s.top10!=null && s.top10>40) return {status:'REVIEW', reason:`top10 holders ${Math.round(s.top10)}% > 40%`};
   if(s.mutable) return {status:'REVIEW', reason:'mutable metadata'};
   return {status:'PASS', reason:'security checks passed'};
