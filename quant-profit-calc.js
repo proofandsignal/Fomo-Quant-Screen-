@@ -32,6 +32,11 @@
     if(!Number.isFinite(Number(s.bid))||!Number.isFinite(Number(s.ask))||
        Number(s.bid)<=0||Number(s.ask)<=0||Number(s.bid)>Number(s.ask))
       return {...base,reasonCodes:[...base.reasonCodes,'CROSSED_OR_BAD_SOURCE_QUOTES']};
+    // A stale quote must never produce a fresh-looking numeric scenario,
+    // even when callers bypass the standalone page's freshness guard.
+    const checkNow=input.nowAt===undefined?Date.now():Number(input.nowAt);
+    if(!Number.isFinite(checkNow)||checkNow<s.fetchedAt||checkNow-s.fetchedAt>120000)
+      return {...base,reasonCodes:[...base.reasonCodes,'SOURCE_STALE']};
     const notional=amount(input.notional,true,1000000);
     const takeExit=amount(input.scenarioExitPrice,true,1000000000);
     const entryFee=amount(input.entryFeeBps,false,1000),exitFee=amount(input.exitFeeBps,false,1000);
@@ -55,8 +60,6 @@
     const reasons=[...base.reasonCodes];
     if(input.side==='SHORT')reasons.push('SPOT_SHORT_IS_DIRECTIONAL_PROXY_ONLY');
     if(s.verification!=='PROVIDER_TIME_CHECKED')reasons.push('RETRIEVAL_TIMESTAMP_ONLY');
-    const now=Number(input.nowAt||Date.now());
-    if(!Number.isFinite(now)||now<s.fetchedAt||now-s.fetchedAt>120000)reasons.push('SOURCE_STALE');
     if(s.quoteCurrency==='USDT')reasons.push('USDT_NOT_EQUIVALENT_TO_USD');
     return {...base,source:s.venue,asset:s.asset,currency:s.quoteCurrency,
       side:input.side,quoteTime:s.fetchedAt,sourceUrl:s.sourceUrl,
