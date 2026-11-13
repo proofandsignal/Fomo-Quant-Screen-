@@ -9,6 +9,7 @@ on:
       - 'derivatives-shadow.js'
       - 'tests/quant-multivenue.mjs'
       - 'tests/quant-exchange-live-smoke.mjs'
+      - 'tests/quant-browser-qa.py'
       - '.github/workflows/quant-multivenue-qa.yml'
   workflow_dispatch:
 permissions:
@@ -16,7 +17,7 @@ permissions:
 jobs:
   research-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 9
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,11 +31,22 @@ jobs:
           node --test tests/quant-multivenue.mjs
       - name: Read-only live six-venue diagnostic, fail-closed unavailable markets
         run: node tests/quant-exchange-live-smoke.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Chromium Playwright controller (preinstalled Chrome)
+        run: pip install playwright
+      - name: Chromium real UI QA and local-origin CORS audit
+        run: |
+          google-chrome --version
+          python tests/quant-browser-qa.py
       - name: Save source URL and status evidence from runner
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: fomo-six-venue-coverage
-          path: /tmp/fomo-quant-six-venues/
+          path: |
+            /tmp/fomo-quant-six-venues/
+            /tmp/fomo-quant-browser-evidence/
           if-no-files-found: warn
           retention-days: 7
