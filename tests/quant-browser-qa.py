@@ -20,7 +20,7 @@ OUT=Path("/tmp/fomo-quant-browser-evidence")
 OUT.mkdir(parents=True, exist_ok=True)
 PORT=8765
 URL=f"http://127.0.0.1:{PORT}/quant-market-lab.html"
-SOURCES=["Kraken","Coinbase Exchange","Gemini","Bybit","OKX","KuCoin","Gate.io","Bitfinex"]
+SOURCES=["Kraken","Coinbase Exchange","Gemini","Bybit","OKX","KuCoin","Gate.io","Bitfinex","HTX","Crypto.com Exchange"]
 
 def mock_response(url,asset="BTC"):
     at=int(time.time()*1000)
@@ -41,6 +41,12 @@ def mock_response(url,asset="BTC"):
         return [{"currency_pair":"BTC_USDT","highest_bid":"100","lowest_ask":"101"}]
     if "bitfinex.com" in url:
         return [100,1,101,1,0,0,100.5,100,102,99]
+    if "huobi.pro" in url:
+        return {"status":"ok","ch":"market.btcusdt.detail.merged",
+                "ts":at,"tick":{"bid":[100,1],"ask":[101,1]}}
+    if "api.crypto.com" in url:
+        return {"method":"public/get-tickers","code":0,
+                "result":{"data":[{"i":"BTC_USDT","b":"100","k":"101","t":at}]}}
     raise AssertionError("unexpected source: "+url)
 
 def route_mock(route):
@@ -59,10 +65,10 @@ def deterministic(browser):
     assert "Financial controls locked" in page.locator("body").inner_text()
     page.route("https://**/*",route_mock)
     page.locator("#refresh").click()
-    expect(page.locator("#scan-status")).to_contain_text("7/8",timeout=25000)
-    assert page.locator("#venues tr").count()==8
+    expect(page.locator("#scan-status")).to_contain_text("9/10",timeout=25000)
+    assert page.locator("#venues tr").count()==10
     assert "HTTP 403" in page.locator("#venues").inner_text()
-    assert page.locator("#venues button").count()==7
+    assert page.locator("#venues button").count()==9
     page.locator("#venues button").first.click()
     expect(page.locator("#chosen")).to_have_value("Kraken")
     page.locator("#exit").fill("110")
@@ -101,7 +107,7 @@ def deterministic(browser):
     mobile.goto(URL)
     mobile.route("https://**/*",route_mock)
     mobile.locator("#refresh").click()
-    expect(mobile.locator("#scan-status")).to_contain_text("7/8",timeout=25000)
+    expect(mobile.locator("#scan-status")).to_contain_text("9/10",timeout=25000)
     assert mobile.locator("#calculate").is_visible()
     assert mobile.locator("#asset").is_visible()
     assert mobile.locator("#calculator").bounding_box() is not None
@@ -110,7 +116,7 @@ def deterministic(browser):
     assert overflow <= 2, f"mobile body horizontal overflow {overflow}"
     mobile.screenshot(path=str(OUT/"mobile390-mocked.png"),full_page=True)
     mobile.close()
-    print("CHROMIUM_MOCKED_UI_PASS: eight configured / seven synthetic response fixtures, source selection, fees, export, fail-closed, 390px viewport, no PAPER writes")
+    print("CHROMIUM_MOCKED_UI_PASS: ten configured / nine synthetic response fixtures, source selection, fees, export, fail-closed, 390px viewport, no PAPER writes")
 
 def live_browser(browser):
     page=browser.new_page(viewport={"width":1360,"height":850})
@@ -160,7 +166,7 @@ def live_browser(browser):
     rows=result["rows"]
     observed=sum("RECEIVED · " in x["text"] for x in rows)
     result["observed_sources"]=observed
-    result["configured_sources"]=8
+    result["configured_sources"]=10
     result["live_chromium_source_gate"]="PASS_SOURCE_READ_ONLY" if observed>=6 else "VERIFY_BROWSER_SOURCE_COVERAGE"
     result["PAPER_eligibility_gate"]="LOCKED"
     (OUT/"live-browser-source-evidence.json").write_text(json.dumps(result,indent=2,ensure_ascii=False)+"\n")
