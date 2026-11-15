@@ -253,6 +253,14 @@ footer{padding:10px 12px 18px;color:var(--dim);font-size:10.5px;border-top:1px s
 .pp-targets{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;margin-top:6px}.pp-targets th,.pp-targets td{padding:3px 4px;border-bottom:1px solid #121a26;text-align:right}.pp-targets th:first-child,.pp-targets td:first-child{text-align:left}
 .pp-lock{word-break:break-all;color:var(--mut);font-size:9.5px;margin-top:6px}
 @media(max-width:420px){.pp-grid{grid-template-columns:1fr}}
+/* Atomic Quant+Calculator research bundle. Navigation only, no PAPER/scoring hooks. */
+.quant-bundle-cta{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  border:1px solid #43d9ff;border-radius:9px;padding:9px 12px;color:#b3faff;
+  background:#092332;font:700 11px/1.35 var(--mono);text-decoration:none;
+  min-height:42px;max-width:100%;white-space:normal;text-align:center}
+.quant-bundle-cta:hover,.quant-bundle-cta:focus-visible{border-color:#35f08d;color:#dbffeb;background:#103341;text-decoration:none}
+.quant-bundle-note{padding:10px 12px;border:1px solid #315064;background:#0a1826;border-radius:10px}
+@media(max-width:420px){.quant-bundle-cta{font-size:10px;padding:8px 9px}}
 </style>
 </head>
 <body>
@@ -263,6 +271,9 @@ footer{padding:10px 12px 18px;color:var(--dim);font-size:10.5px;border-top:1px s
   <div class="lights" id="lights"></div>
   <div class="spacer"></div>
   <span id="scanInfo"></span>
+  <a id="quantProfitLauncher" class="quant-bundle-cta" href="./quant-market-lab.html"
+     aria-label="Open Market Sources and Profit Calculator, research only"
+     data-research-only="true">MARKET SOURCES + PROFIT CALCULATOR <span aria-hidden="true">↗</span></a>
   <button class="btn" data-act="scan" title="Пусни цикъл сега">SCAN NOW</button>
   <button class="btn" data-act="pause" id="pauseBtn">PAUSE</button>
 </header>
@@ -355,6 +366,12 @@ footer{padding:10px 12px 18px;color:var(--dim);font-size:10.5px;border-top:1px s
             </div>
           </div>
           <div id="ppOut" class="sect"><div class="empty">Signal → Analyst validation → Position Planner → Calculator → Risk Gate → Paper Snapshot.</div></div>
+          <div class="quant-bundle-note" style="margin:9px 12px 12px">
+            <div class="mini" style="margin-bottom:8px">Separate research-only SPOT reference calculator. Does not qualify PAPER trades or change the locked Position Planner / Security Gate. Current supported venues depend on live source and browser CORS status.</div>
+            <a id="quantProfitFromPlanner" class="quant-bundle-cta" href="./quant-market-lab.html"
+               aria-label="Explore read-only market sources and hypothetical profit calculator"
+               data-research-only="true">EXPLORE MULTI-EXCHANGE PROFIT CALCULATOR ↗</a>
+          </div>
         </div>
         <div class="panel" id="bybitShadowPanel">
           <div class="ph"><i>◆</i> DERIVATIVES INTELLIGENCE <span class="r">BYBIT · SHADOW ONLY</span></div>
