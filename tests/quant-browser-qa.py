@@ -80,6 +80,73 @@ def bundled_dashboard_navigation(browser):
     page.close()
     print("QUANT_BUNDLE_NAV_PASS: main dashboard CTA + planner CTA => same-origin calculator with market sources; research-only")
 
+def protected_preview_browser(browser):
+    """Check loopback-authenticated BUNDLE in actual Chromium; NOT hosted HTTPS."""
+    from urllib.error import HTTPError
+    protected_port=8766
+    user="quant_test_only"
+    secret="synthetic-secret-for-local-QA-not-for-production"
+    env={**os.environ,
+         "PORT":str(protected_port),
+         "QUANT_PREVIEW_USER":user,
+         "QUANT_PREVIEW_PASSWORD":secret,
+         "QUANT_PREVIEW_ALLOW_HTTP_LOCALHOST":"1"}
+    proc=subprocess.Popen(["node","preview/quant-protected/server.mjs"],
+                          cwd=ROOT,env=env,
+                          stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    try:
+        protected=f"http://127.0.0.1:{protected_port}"
+        for _ in range(40):
+            try:
+                with urlopen(protected+"/healthz",timeout=1) as r:
+                    if r.status==200:break
+            except OSError:
+                time.sleep(.2)
+        else:
+            raise AssertionError("protected preview did not start")
+        try:
+            with urlopen(protected+"/quant-market-lab.html",timeout=2):
+                raise AssertionError("anonymous access should be denied")
+        except HTTPError as ex:
+            assert ex.code==401,"expected WWW-Authenticate"
+        ctx=browser.new_context(http_credentials={"username":user,"password":secret},
+                                 viewport={"width":1360,"height":880},
+                                 accept_downloads=True)
+        page=ctx.new_page()
+        page.goto(protected+"/index.html?mode=sim&tick=300",
+                  wait_until="domcontentloaded")
+        expect(page.locator("#quantProfitLauncher")).to_be_visible()
+        page.locator("#quantProfitLauncher").click()
+        page.wait_for_url("**/quant-market-lab.html",timeout=12000)
+        expect(page.locator("#sources")).to_be_visible()
+        expect(page.locator("#calculator")).to_be_visible()
+        assert page.locator('meta[http-equiv="Content-Security-Policy"]').count()==1
+        page.route("https://**/*",route_mock)
+        page.locator("#refresh").click()
+        expect(page.locator("#scan-status")).to_contain_text("9/10",timeout=25000)
+        page.locator("#venues button").first.click()
+        expect(page.locator("#chosen")).to_have_value("Kraken")
+        page.locator("#calculate").click()
+        expect(page.locator("#export")).to_be_enabled()
+        page.locator("#fee-out").fill("25")
+        expect(page.locator("#export")).to_be_disabled()
+        assert page.locator("#net").inner_text()=="—"
+        page.screenshot(path=str(OUT/"auth-protected-bundle-mocked.png"),full_page=True)
+        ctx.close()
+        (OUT/"protected-local-auth-evidence.json").write_text(
+            json.dumps({"scope":"LOCALHOST_ONLY_NO_HTTPS",
+                        "live_deployment":False,"independent_review":False,
+                        "browser_authenticated_navigation":"PASS",
+                        "anonymous_access_denied":"PASS",
+                        "source_prices":"SYNTHETIC_FIXTURES",
+                        "financial_export_after_input_change":"DISABLED",
+                        "physical_samsung":"NOT_TESTED"},indent=2)+"\n")
+        print("QUANT_PROTECTED_LOCAL_CHROMIUM_PASS: auth 401, header->calculator, synthetic quotes, stale export invalidated; HTTPS/Samsung/Legal pending")
+    finally:
+        proc.terminate()
+        try:proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:proc.kill()
+
 def deterministic(browser):
     page=browser.new_page(accept_downloads=True, viewport={"width":1280,"height":900})
     page.goto(URL)
@@ -201,6 +268,7 @@ def main():
             assert chrome, "Hosted Chromium not found"
             browser=p.chromium.launch(headless=True,executable_path=chrome,
                                       args=["--no-sandbox","--disable-dev-shm-usage"])
+            protected_preview_browser(browser)
             bundled_dashboard_navigation(browser)
             deterministic(browser)
             live_browser(browser)
