@@ -113,6 +113,12 @@ function calculate(){
 }
 function exportEvidence(){
  if(!result)return;
+ // An old quote must not remain exportable as a current scenario.
+ const age=Date.now()-result.quote.fetchedAt;
+ if(!Number.isFinite(age)||age<0||age>api.MAX_AGE_MS){
+  disableOutcome('Quote expired; refresh sources and recalculate.');
+  return;
+ }
  const b=new Blob([JSON.stringify(result,null,2)+'\n'],{type:'application/json'});
  const u=URL.createObjectURL(b),a=document.createElement('a');
  a.href=u;a.download='fomo-quant-research-'+$('asset').value.toLowerCase()+'.json';
@@ -125,4 +131,16 @@ $('calculate').onclick=calculate;
 $('export').onclick=exportEvidence;
 $('chosen').onchange=()=>{const q=chosenQuote();if(q)sourceSelected(q.venue);else disableOutcome('Select source.');};
 $('direction').onchange=()=>disableOutcome('Direction changed; rerun hypothetical calculation.');
+// Every change to the hypothetical scenario invalidates displayed profit
+// and the download. This does not fetch or submit any new market data.
+for(const id of ['notional','exit','fee-in','fee-out','slip-in','slip-out','other']){
+ const el=$(id);
+ el.addEventListener('input',()=>disableOutcome('Scenario changed; calculate again before export.'));
+ el.addEventListener('change',()=>disableOutcome('Scenario changed; calculate again before export.'));
+}
+// Rechecking freshness locally does NOT trigger market/API requests.
+setInterval(()=>{
+ if(result&&(Date.now()<result.quote.fetchedAt||Date.now()-result.quote.fetchedAt>api.MAX_AGE_MS))
+   disableOutcome('Quote expired; refresh sources and recalculate.');
+},10000);
 })();
