@@ -68,7 +68,7 @@ function parseCredentials(header){
   const separator=value.indexOf(':');
   return separator>=1?{user:value.slice(0,separator),password:value.slice(separator+1)}:null;
 }
-export function createPreviewServer({username,password,allowHttpLocal=false,audience='internal'}={}){
+export function createPreviewServer({username,password,allowHttpLocal=false,trustProxyHttps=false,audience='internal'}={}){
   if(audience!=='internal')throw Error('External client market-data preview is license-locked');
   if(typeof username!=='string'||username.length<3||typeof password!=='string'||password.length<16)
     throw Error('Protected preview requires QUANT_PREVIEW_USER and a strong QUANT_PREVIEW_PASSWORD (>=16 chars)');
@@ -76,7 +76,9 @@ export function createPreviewServer({username,password,allowHttpLocal=false,audi
   const failed=new Map();
   return createServer(async(req,res)=>{
     const local=allowHttpLocal && isLocalAddress(req.socket.remoteAddress);
-    const secure=req.socket.encrypted||req.headers['x-forwarded-proto']==='https';
+    // Never trust X-Forwarded-Proto from an arbitrary direct client.
+    // Only enable this behind the verified Render TLS-terminating edge.
+    const secure=req.socket.encrypted||(trustProxyHttps&&req.headers['x-forwarded-proto']==='https');
     if(!secure&&!local){finish(res,403,'HTTPS required\n');return;}
     if(secure)res.setHeader('Strict-Transport-Security','max-age=31536000');
     const url=new URL(req.url||'/', 'https://quant-preview.invalid');
@@ -118,7 +120,9 @@ if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
     username:process.env.QUANT_PREVIEW_USER,
     password:process.env.QUANT_PREVIEW_PASSWORD,
     allowHttpLocal:process.env.QUANT_PREVIEW_ALLOW_HTTP_LOCALHOST==='1',
-    audience:process.env.QUANT_PREVIEW_AUDIENCE||'internal'
+    audience:process.env.QUANT_PREVIEW_AUDIENCE||'internal',
+    trustProxyHttps:process.env.RENDER_SERVICE_TYPE==='web' &&
+      Boolean(process.env.RENDER_SERVICE_ID&&process.env.RENDER_EXTERNAL_HOSTNAME)
   });
   const port=Number(process.env.PORT||10000);
   if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid PORT');
