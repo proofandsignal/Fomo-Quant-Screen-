@@ -9,6 +9,8 @@ on:
       - 'derivatives-shadow.js'
       - 'tests/quant-multivenue.mjs'
       - 'tests/quant-release-invariants.mjs'
+      - 'tests/quant-protected-preview.mjs'
+      - 'preview/quant-protected/server.mjs'
       - 'index.html'
       - 'docs/QUANT_BOOST_RELEASE_BUNDLE_001.md'
       - 'tests/quant-exchange-live-smoke.mjs'
@@ -31,7 +33,7 @@ jobs:
           node --check quant-market-sources.js
           node --check quant-profit-calc.js
           node --check quant-market-lab.js
-          node --test tests/quant-multivenue.mjs tests/quant-release-invariants.mjs
+          node --test tests/quant-multivenue.mjs tests/quant-release-invariants.mjs tests/quant-protected-preview.mjs
       - name: Read-only live six-venue diagnostic, fail-closed unavailable markets
         run: node tests/quant-exchange-live-smoke.mjs
       - uses: actions/setup-python@v5
