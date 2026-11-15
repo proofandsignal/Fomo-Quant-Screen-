@@ -1,7 +1,7 @@
 /* Protected Quant preview gates, entirely loopback and synthetic credentials.
  * No deployment or live market endpoint calls.
  */
-import test, {before, after} from 'node:test';
+import test, {beforeEach, afterEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {createPreviewServer} from '../preview/quant-protected/server.mjs';
 
@@ -10,7 +10,7 @@ let server,url;
 const authorization='Basic '+Buffer.from(user+':'+password).toString('base64');
 const request=async(path,options={})=>fetch(url+path,{...options,redirect:'manual'});
 
-before(async()=>{
+beforeEach(async()=>{
   server=createPreviewServer({username:user,password,allowHttpLocal:true});
   await new Promise((resolve,reject)=>{
     server.once('error',reject);
@@ -18,7 +18,7 @@ before(async()=>{
   });
   url='http://127.0.0.1:'+server.address().port;
 });
-after(async()=>{await new Promise(resolve=>server.close(resolve));});
+afterEach(async()=>{await new Promise(resolve=>server.close(resolve));});
 
 test('cannot start unprotected or weakly protected preview',()=>{
  for(const cfg of [{},{username:'qa',password:'weak'},{
@@ -88,4 +88,17 @@ test('health route discloses no service credentials or user data',async()=>{
  assert.equal(r.status,200);
  assert.equal(await r.text(),'OK\n');
  assert.equal(r.headers.get('cache-control').includes('no-store'),true);
+});
+
+test('brute-force throttling denies repeated unknown clients without revealing protected assets',async()=>{
+ for(let i=0;i<8;i++){
+  const r=await request('/quant-market-lab.html',{
+   headers:{Authorization:'Basic '+Buffer.from('attacker:wrong'+i).toString('base64')}
+  });
+  assert.equal(r.status,401);
+ }
+ const blocked=await request('/quant-market-lab.html',{headers:{Authorization:authorization}});
+ assert.equal(blocked.status,429);
+ assert.equal(blocked.headers.get('retry-after'),'60');
+ assert.doesNotMatch(await blocked.text(),/Market Sources|Calculator/);
 });
