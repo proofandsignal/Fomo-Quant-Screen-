@@ -106,3 +106,66 @@ test('invalid, missing fee or stale market snapshot does not become trading sign
  assert.ok(later.reasonCodes.includes('SOURCE_STALE'));
  assert.equal(later.allowedToTrade,false);
 });
+
+
+test('Kraken exact pair identity rejects venue-side instrument substitution',()=>{
+ for(const asset of ['BTC','ETH','SOL']){
+  assert.throws(()=>adapters.normalize('Kraken',asset,{error:[],result:{
+   'LTCUSD':{a:['101'],b:['100']}
+  }},now),/wrong pair/);
+ }
+ const eth=adapters.normalize('Kraken','ETH',{error:[],result:{
+  XETHZUSD:{a:['101'],b:['100']}
+ }},now);
+ assert.equal(eth.providerSymbol,'XETHZUSD');
+ const sol=adapters.normalize('Kraken','SOL',{error:[],result:{
+  SOLUSD:{a:['101'],b:['100']}
+ }},now);
+ assert.equal(sol.providerSymbol,'SOLUSD');
+});
+test('required exchange timestamps reject null and nonnumeric values, no fallback to retrieval-only',()=>{
+ const bad={
+  'Coinbase Exchange':{...cases['Coinbase Exchange'],time:'bad'},
+  'Bybit':{...cases.Bybit,time:undefined},
+  'OKX':{...cases.OKX,data:[{...cases.OKX.data[0],ts:'oops'}]},
+  'KuCoin':{...cases.KuCoin,data:{...cases.KuCoin.data,time:null}},
+  'HTX':{...cases.HTX,ts:undefined},
+  'Crypto.com Exchange':{...cases['Crypto.com Exchange'],
+    result:{data:[{...cases['Crypto.com Exchange'].result.data[0],t:undefined}]}}
+ };
+ for(const [name,payload] of Object.entries(bad))
+  assert.throws(()=>adapters.normalize(name,'BTC',payload,now),/timestamp/,name);
+});
+test('source adapter forbids customer credentials and non-GET calls even on error paths',async()=>{
+ const opts=[];
+ const req=async(url,options)=>{opts.push({url,options});return {ok:false,status:451};};
+ const result=await adapters.scan('BTC',req,()=>now);
+ assert.equal(result.length,10);
+ assert.equal(opts.length,10);
+ for(const {url,options} of opts){
+  assert.match(url,/^https:\/\//);
+  assert.equal(options.method,'GET');
+  assert.equal(options.credentials,'omit');
+  assert.equal(options.cache,'no-store');
+  assert.equal(options.mode,'cors');
+ }
+ assert.equal(result.filter(x=>x.status==='OBSERVED_QUOTE').length,0);
+});
+test('pure calculator stale input, negative/huge input and tampered quotes remain VERIFY',()=>{
+ const live=result('Kraken');
+ const base={source:live,side:'LONG',notional:1000,scenarioExitPrice:120,
+  entryFeeBps:10,exitFeeBps:10,entrySlippageBps:0,exitSlippageBps:0,
+  extraCostQuote:0,nowAt:now};
+ for(const bad of [
+  {nowAt:now+120001},{nowAt:now-1},{source:{...live,bid:102,ask:101}},
+  {source:{...live,marketType:'PERP'}},{source:{...live,quoteCurrency:'EUR'}},
+  {entryFeeBps:1001},{exitSlippageBps:1001},{notional:1000001},
+  {scenarioExitPrice:Infinity},{extraCostQuote:-1}
+ ]){
+  const out=profit.calc({...base,...bad});
+  assert.equal(out.conditionalNetQuote,undefined,JSON.stringify(bad));
+  assert.equal(out.allowedToTrade,false);
+  assert.equal(out.financiallyEligiblePaper,false);
+  assert.equal(out.verifiedNet,null);
+ }
+});
