@@ -45,9 +45,18 @@
       case 'Kraken':{
         if(!payload||!Array.isArray(payload.error)||payload.error.length!==0||!payload.result||
            Object.keys(payload.result).length!==1)throw Error('Kraken ticker/pair schema unverified');
-        const t=Object.values(payload.result)[0];
+        // Kraken may return an internal pair ID rather than the requested
+        // altname. Reject any single-key response for a different asset.
+        const allowedPairs={
+          BTC:['XXBTZUSD','XBTUSD','BTCUSD'],
+          ETH:['XETHZUSD','ETHUSD'],
+          SOL:['SOLUSD']
+        };
+        const pair=Object.keys(payload.result)[0];
+        if(!allowedPairs[asset].includes(pair))throw Error('Kraken returned wrong pair');
+        const t=payload.result[pair];
         bid=t&&t.b&&t.b[0];ask=t&&t.a&&t.a[0];
-        rawSymbol=asset+'USD';break;
+        rawSymbol=pair;break;
       }
       case 'Coinbase Exchange':{
         if(!payload||!payload.trade_id||!payload.time)throw Error('Coinbase trade identifier or time missing');
@@ -112,6 +121,8 @@
     }
     bid=positive(bid);ask=positive(ask);
     if(!bid||!ask||bid>ask)throw Error('Missing/crossed/invalid bid-ask');
+    if(['Coinbase Exchange','Bybit','OKX','KuCoin','HTX','Crypto.com Exchange'].includes(name)&&providerAt===null)
+      throw Error('Required provider timestamp missing');
     if(providerAt!==null&&(providerAt>fetched+FRESH_EPS_MS||fetched-providerAt>MAX_AGE_MS))
       throw Error('Provider timestamp stale or in future');
     return Object.freeze({
