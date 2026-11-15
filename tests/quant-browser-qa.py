@@ -58,6 +58,28 @@ def route_mock(route):
         route.fulfill(status=200,content_type="application/json",body=json.dumps(obj),
                       headers={"Access-Control-Allow-Origin":"*","Cache-Control":"no-store"})
 
+def bundled_dashboard_navigation(browser):
+    """The two products must ship together, not as unlinked parallel demos."""
+    page=browser.new_page(viewport={"width":1360,"height":850})
+    page.goto(f"http://127.0.0.1:{PORT}/index.html?mode=sim&tick=300",
+              wait_until="domcontentloaded")
+    launch=page.locator("#quantProfitLauncher")
+    expect(launch).to_have_attribute("href","./quant-market-lab.html")
+    expect(launch).to_be_visible(timeout=12000)
+    planner=page.locator("#quantProfitFromPlanner")
+    expect(planner).to_have_attribute("href","./quant-market-lab.html")
+    assert launch.get_attribute("data-research-only")=="true"
+    assert planner.get_attribute("data-research-only")=="true"
+    launch.click()
+    page.wait_for_url("**/quant-market-lab.html",timeout=12000)
+    expect(page.locator("#calculator")).to_be_visible()
+    expect(page.locator("#sources")).to_be_visible()
+    expect(page.locator("header a.brand")).to_have_attribute("href","./index.html")
+    assert not page.evaluate("Object.keys(localStorage).some(k => /quantMarketOrder/i.test(k))")
+    page.screenshot(path=str(OUT/"bundle-navigation.png"),full_page=True)
+    page.close()
+    print("QUANT_BUNDLE_NAV_PASS: main dashboard CTA + planner CTA => same-origin calculator with market sources; research-only")
+
 def deterministic(browser):
     page=browser.new_page(accept_downloads=True, viewport={"width":1280,"height":900})
     page.goto(URL)
@@ -192,6 +214,7 @@ def main():
             assert chrome, "Hosted Chromium not found"
             browser=p.chromium.launch(headless=True,executable_path=chrome,
                                       args=["--no-sandbox","--disable-dev-shm-usage"])
+            bundled_dashboard_navigation(browser)
             deterministic(browser)
             live_browser(browser)
             browser.close()
