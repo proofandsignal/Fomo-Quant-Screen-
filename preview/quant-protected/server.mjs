@@ -68,7 +68,8 @@ function parseCredentials(header){
   const separator=value.indexOf(':');
   return separator>=1?{user:value.slice(0,separator),password:value.slice(separator+1)}:null;
 }
-export function createPreviewServer({username,password,allowHttpLocal=false}={}){
+export function createPreviewServer({username,password,allowHttpLocal=false,audience='internal'}={}){
+  if(audience!=='internal')throw Error('External client market-data preview is license-locked');
   if(typeof username!=='string'||username.length<3||typeof password!=='string'||password.length<16)
     throw Error('Protected preview requires QUANT_PREVIEW_USER and a strong QUANT_PREVIEW_PASSWORD (>=16 chars)');
   const expectedUser=username,expectedPass=password;
@@ -116,7 +117,8 @@ if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   const server=createPreviewServer({
     username:process.env.QUANT_PREVIEW_USER,
     password:process.env.QUANT_PREVIEW_PASSWORD,
-    allowHttpLocal:process.env.QUANT_PREVIEW_ALLOW_HTTP_LOCALHOST==='1'
+    allowHttpLocal:process.env.QUANT_PREVIEW_ALLOW_HTTP_LOCALHOST==='1',
+    audience:process.env.QUANT_PREVIEW_AUDIENCE||'internal'
   });
   const port=Number(process.env.PORT||10000);
   if(!Number.isInteger(port)||port<1||port>65535)throw Error('Invalid PORT');
