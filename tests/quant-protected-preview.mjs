@@ -83,6 +83,10 @@ test('HTTPS mandatory outside explicit loopback QA setting',async()=>{
   const r=await fetch(endpoint,{headers:{Authorization:authorization}});
   assert.equal(r.status,403);
   assert.equal(await r.text(),'HTTPS required\n');
+  const spoof=await fetch(endpoint,{headers:{
+    Authorization:authorization,'X-Forwarded-Proto':'https'
+  }});
+  assert.equal(spoof.status,403,'untrusted direct clients cannot spoof HTTPS');
  }finally{await new Promise(resolve=>s.close(resolve));}
 });
 test('health route discloses no service credentials or user data',async()=>{
