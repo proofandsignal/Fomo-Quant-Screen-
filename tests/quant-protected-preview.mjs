@@ -20,10 +20,12 @@ beforeEach(async()=>{
 });
 afterEach(async()=>{await new Promise(resolve=>server.close(resolve));});
 
-test('cannot start unprotected or weakly protected preview',()=>{
+test('cannot start unprotected, weak or external-client preview',()=>{
  for(const cfg of [{},{username:'qa',password:'weak'},{
   username:'qa',password:'a'.repeat(15)
  }])assert.throws(()=>createPreviewServer(cfg),/requires/);
+ assert.throws(()=>createPreviewServer({username:user,password,audience:'public'}),/license-locked/);
+ assert.throws(()=>createPreviewServer({username:user,password,audience:'client'}),/license-locked/);
 });
 test('denies all public artifact reads without strong credentials',async()=>{
  for(const path of ['/', '/index.html', '/quant-market-lab.html',
