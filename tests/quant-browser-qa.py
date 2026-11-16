@@ -149,29 +149,32 @@ def protected_preview_browser(browser):
 
 
 def asset_change_inflight_race(browser):
-    """A late BTC response cannot populate an ETH panel or re-enable export."""
+    """A delayed BTC source scan must never repaint an ETH panel."""
     page=browser.new_page(viewport={"width":1280,"height":800})
-    page.goto(URL,wait_until="domcontentloaded")
-    page.evaluate("""() => {
-      window.__scanAsset=null;
-      window.__resolveOldScan=null;
-      window.__originalScan=window.FomoMarketSources.scan;
-      window.FomoMarketSources.scan=(asset)=>new Promise(resolve=>{
-        window.__scanAsset=asset;window.__resolveOldScan=resolve;
+    # The source-module object is frozen: intercept fetch before module load.
+    # All 10 public requests remain synthetic and pending until after asset switch.
+    page.add_init_script("""() => {
+      window.__pendingSourceResponses=[];
+      window.fetch=(input,options)=>new Promise(resolve=>{
+        window.__pendingSourceResponses.push({url:String(input),resolve});
       });
     }""")
+    page.goto(URL,wait_until="domcontentloaded")
     page.locator("#refresh").click()
     expect(page.locator("#refresh")).to_be_disabled()
-    assert page.evaluate("window.__scanAsset")=="BTC"
+    page.wait_for_function("window.__pendingSourceResponses.length===10",timeout=5000)
     page.locator("#asset").select_option("ETH")
     expect(page.locator("#scan-status")).to_contain_text("Asset changed")
+    # A structurally valid late Kraken BTC quote plus nine invalid responses.
     page.evaluate("""() => {
-      window.__resolveOldScan([{
-        venue:"Kraken",asset:"BTC",quoteCurrency:"USD",symbol:"BTC/USD",
-        marketType:"SPOT",bid:100,ask:101,fetchedAt:Date.now(),
-        status:"OBSERVED_QUOTE",verification:"RETRIEVAL_ONLY",
-        sourceUrl:"https://api.kraken.com/0/public/Ticker?pair=BTCUSD"
-      }]);
+      window.__pendingSourceResponses.forEach(({url,resolve}) => {
+        const payload=url.includes("kraken.com")
+          ? {error:[],result:{XXBTZUSD:{a:["101"],b:["100"]}}}
+          : {};
+        resolve(new Response(JSON.stringify(payload), {
+          status:200,headers:{"Content-Type":"application/json"}
+        }));
+      });
     }""")
     expect(page.locator("#refresh")).to_be_enabled(timeout=5000)
     expect(page.locator("#scan-status")).to_contain_text("Asset changed")
@@ -180,9 +183,9 @@ def asset_change_inflight_race(browser):
     assert page.locator("#chosen option").count()==0
     assert page.locator("#export").is_disabled()
     assert page.locator("#net").inner_text()=="—"
-    page.evaluate("window.FomoMarketSources.scan=window.__originalScan")
     page.close()
-    print("QUANT_INFLIGHT_ASSET_RACE_PASS: outdated BTC replies discarded after ETH selection, export locked")
+    print("QUANT_INFLIGHT_ASSET_RACE_PASS: stale BTC responses discarded after ETH switch; export locked")
+
 
 def deterministic(browser):
     page=browser.new_page(accept_downloads=True, viewport={"width":1280,"height":900})
