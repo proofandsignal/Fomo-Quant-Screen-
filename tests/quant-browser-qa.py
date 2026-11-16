@@ -141,20 +141,29 @@ def protected_preview_browser(browser):
         assert "SYNTHETIC_FIXTURE_NOT_MARKET_DATA" in evidence["scenario"]["reasonCodes"]
         # Prove CSP, not CORS or DNS, blocks an otherwise supported exchange host.
         csp_block=page.evaluate("""async () => {
-            let violation=null;
-            const handler=e=>{
-                if(e.effectiveDirective==='connect-src') violation=e.blockedURI;
-            };
-            document.addEventListener('securitypolicyviolation',handler);
-            const controller=new AbortController();
-            const abort=setTimeout(()=>controller.abort(),2500);
-            try {
-                await fetch('https://api.kraken.com/0/public/Time',
-                  {mode:'cors',credentials:'omit',signal:controller.signal});
-            } catch(e) {}
-            clearTimeout(abort);
-            document.removeEventListener('securitypolicyviolation',handler);
-            return violation;
+            return await new Promise(async resolve => {
+                const handler=e=>{
+                    if(e.effectiveDirective==='connect-src' &&
+                       e.blockedURI.includes('api.kraken.com')){
+                        clearTimeout(timeout);
+                        document.removeEventListener('securitypolicyviolation',handler);
+                        resolve(e.blockedURI);
+                    }
+                };
+                const timeout=setTimeout(()=>{
+                    document.removeEventListener('securitypolicyviolation',handler);
+                    resolve(null);
+                },2500);
+                document.addEventListener('securitypolicyviolation',handler);
+                const controller=new AbortController();
+                const abort=setTimeout(()=>controller.abort(),2200);
+                try {
+                    await fetch('https://api.kraken.com/0/public/Time',
+                      {mode:'cors',credentials:'omit',signal:controller.signal});
+                } catch(e) {}
+                clearTimeout(abort);
+                // Keep listener alive for async browser CSP violation dispatch.
+            });
         }""")
         assert csp_block and "api.kraken.com" in csp_block, (
             "Synthetic private preview must reject market API via connect-src CSP")
@@ -163,7 +172,8 @@ def protected_preview_browser(browser):
         assert page.locator("#net").inner_text()=="—"
         page.screenshot(path=str(OUT/"auth-protected-bundle-mocked.png"),full_page=True)
         # This is responsive Chrome emulation, NOT a physical Samsung QA pass.
-        mobile=ctx.new_page(viewport={"width":390,"height":844})
+        mobile=ctx.new_page()
+        mobile.set_viewport_size({"width":390,"height":844})
         mobile.goto(protected+"/index.html?mode=sim",wait_until="domcontentloaded")
         mobile.locator("#quantProfitLauncher").click()
         mobile.wait_for_url("**/quant-market-lab.html",timeout=12000)
