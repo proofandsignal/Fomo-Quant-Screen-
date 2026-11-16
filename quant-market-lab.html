@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src https://api.kraken.com https://api.exchange.coinbase.com https://api.gemini.com https://api.bybit.com https://www.okx.com https://api.kucoin.com https://api.gateio.ws https://api-pub.bitfinex.com https://api.huobi.pro https://api.crypto.com; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+<meta name="quant-preview-mode" content="synthetic">
 <meta name="color-scheme" content="dark">
 <title>FOMO Quant · Market Sources & Profit Calculator</title>
 <style>
@@ -17,17 +18,17 @@
 <nav><a href="./index.html">Quant Screen</a><a href="./index.html?mode=sim#bybitShadowPanel" aria-label="Open read-only Bybit derivatives reference panel in synthetic Quant Screen">Derivatives Reference</a><a href="#sources">Market Sources</a><a href="#calculator">Profit Calculator</a></nav>
 </header>
 <section>
-<p class="kicker">Read-only Research Lab · Ten Venue Adapters · Seven Tested Direct-CORS Candidates</p>
+<p class="kicker">PUBLIC DEMO · SYNTHETIC DATA ONLY · NO EXCHANGE CONNECTIONS</p>
 <h1>Know your source.<br>Model your outcome.</h1>
-<p class="intro">Inspect spot bid/ask snapshots from ten configured exchanges, see source and quote freshness, then run a hypothetical directional net-profit calculation. No orders. No account access. No signals. No PAPER qualification.</p>
+<p class="intro">Load clearly simulated BTC, ETH or SOL bid/ask prices and explore hypothetical LONG or SHORT outcomes, costs, ROI and break-even. No real exchange prices, orders, credentials, qualified PAPER trades or financial advice. No orders. No PAPER qualification.</p>
 <div class="warning"><strong>Financial controls locked.</strong> This is a draft research module, not a guaranteed-profit calculator. Top-of-book prices are not proof of fill, depth, borrowing or financing. USD and USDT are different quote assets and must not be compared or converted without verified FX evidence.</div>
-<div class="warning" style="margin-top:10px"><strong>Internal research only — market-data permissions pending.</strong> Some provider terms may restrict use in external applications, redistribution and customer displays. API accessibility is not a license. No public/client release is authorized until independent legal/IP review confirms the exact venue and use case.</div>
+<div class="warning" style="margin-top:10px"><strong>Public demo safety mode is active.</strong> Live exchange quotes are disabled while independent market-data rights and release reviews remain pending. All example prices are fabricated and must not be used for trades.</div>
 </section>
 <section class="panel" id="sources">
-<div class="row"><div><p class="kicker">Evidence first</p><h2>Exchange source monitor</h2></div><div class="row"><label for="asset">Asset</label><select id="asset" style="width:115px"><option>BTC</option><option>ETH</option><option>SOL</option></select><button id="refresh">Refresh exchanges</button><button id="load-synthetic" class="secondary" hidden>Load synthetic scenario</button></div></div>
-<p class="mini" id="scan-status" role="status" aria-live="polite">Not loaded. Public quotes are requested only after clicking Refresh.</p>
+<div class="row"><div><p class="kicker">Evidence first</p><h2>Exchange source monitor</h2></div><div class="row"><label for="asset">Asset</label><select id="asset" style="width:115px"><option>BTC</option><option>ETH</option><option>SOL</option></select><button id="refresh" disabled title="Live exchange access is disabled pending source rights verification">Live sources locked</button><button id="load-synthetic" class="secondary">Load synthetic scenario</button></div></div>
+<p class="mini" id="scan-status" role="status" aria-live="polite">SYNTHETIC DEMO · Press Load synthetic scenario to start. No live exchange data is requested.</p>
 <div class="tablewrap"><table><thead><tr><th>Venue / market</th><th>Bid</th><th>Ask</th><th>Source time</th><th>Evidence</th><th>Action</th></tr></thead><tbody id="venues"><tr><td colspan="6">No public quotes requested yet.</td></tr></tbody></table></div>
-<p class="mini">Source status means the current *browser session* can retrieve and validate the API response. It does not verify legal trading eligibility, available liquidity, or exchange-side matching. Blocked API, stale timestamp, invalid schema, CORS or georestriction → VERIFY. USD venues: Kraken, Coinbase Exchange, Gemini. USDT venues: Bybit, OKX, KuCoin, Gate.io. Additional USD reference: Bitfinex. Further USDT sources: HTX and Crypto.com Exchange. At least six of ten must pass real per-source QA for the target; Bybit HTTP 403 remains VERIFY where blocked.</p>
+<p class="mini">All values in this public demonstration are <strong>SYNTHETIC</strong> training inputs, not quotes, executions or provider evidence. Market adapters are developed separately for internal verification. External provider feeds will remain disabled here until the appropriate rights, independent Security/Financial/Legal review and owner approval are confirmed. The calculator never grants PAPER eligibility or real-money authorization.</p>
 </section>
 <section class="panel" id="calculator">
 <div class="row"><div><p class="kicker">Scenario only · no orders</p><h2>Profit Calculator</h2></div><span class="pill unverified" id="calc-status">VERIFY · select source</span></div>

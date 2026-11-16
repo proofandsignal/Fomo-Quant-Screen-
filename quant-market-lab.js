@@ -5,7 +5,7 @@ const $=id=>document.getElementById(id);
 const api=window.FomoMarketSources,model=window.FomoQuantProfit;
 let quotes=[],result=null,scanning=false,scanGeneration=0;
 const syntheticPreview=!!document.querySelector('meta[name="quant-preview-mode"][content="synthetic"]');
-const eligibleQuote=q=>q&&(q.status==='OBSERVED_QUOTE'||(syntheticPreview&&q.status==='SYNTHETIC_QUOTE'));
+const eligibleQuote=q=>q&&(syntheticPreview?q.status==='SYNTHETIC_QUOTE':q.status==='OBSERVED_QUOTE');
 const money=(x,c)=>Number.isFinite(x)?new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:6}).format(x)+' '+c:'—';
 const when=x=>Number.isFinite(x)?new Date(x).toISOString().replace('T',' ').slice(0,19)+' UTC':'UNAVAILABLE';
 function cell(row,value){
