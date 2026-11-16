@@ -65,6 +65,17 @@ test('authenticated client accesses exact same-origin Quant and Calculator asset
  const calc=await request('/quant-market-lab.html',{headers:H});
  assert.match(await calc.text(),/Profit Calculator/);
 });
+test('protected preview Derivatives navigation points to a served, synthetic Quant panel',async()=>{
+ const H={Authorization:authorization};
+ const market=await request('/quant-market-lab.html',{headers:H});
+ const html=await market.text();
+ assert.match(html,/href="\.\/index\.html\?mode=sim#bybitShadowPanel"/);
+ assert.doesNotMatch(html,/href="\.\/bybit-shadow-preview\.html"/);
+ const main=await request('/index.html?mode=sim',{headers:H});
+ assert.equal(main.status,200);
+ assert.match(await main.text(),/id="bybitShadowPanel"/);
+});
+
 test('protected server never publishes source, private files or credential handling',async()=>{
  const H={Authorization:authorization};
  for(const path of ['/README.md','/docs/QUANT_INDEPENDENT_REVIEW_HANDOFF_2026-11-15.md',
