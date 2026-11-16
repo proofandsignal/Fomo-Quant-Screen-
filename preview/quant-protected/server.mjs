@@ -103,7 +103,7 @@ export function createPreviewServer({username,password,allowHttpLocal=false,trus
       if(path==='quant-market-lab.html'){
         const html=bytes.toString('utf8');
         if(!html.includes('</head>'))throw Error('Missing market-lab head');
-        bytes=html.replace('</head>','<meta name="quant-preview-mode" content="synthetic">\n</head>');
+        bytes=html.includes('name="quant-preview-mode"')?html:html.replace('</head>','<meta name="quant-preview-mode" content="synthetic">\n</head>');
       }
       finish(res,200,bytes,headers);
     }catch(e){

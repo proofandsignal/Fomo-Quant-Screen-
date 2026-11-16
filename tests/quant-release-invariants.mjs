@@ -59,25 +59,22 @@ test('source origin list is restricted to https allowlisted exchange endpoints',
 });
 
 
-test('browser CSP denies unapproved scripts, connections, embeds and forms',()=>{
+test('public Pages calculator is unmistakably synthetic-only and no-exchange-egress',()=>{
+ assert.match(lab,/<meta name="quant-preview-mode" content="synthetic">/);
+ assert.match(lab,/<button id="refresh" disabled/);
+ assert.match(lab,/<button id="load-synthetic" class="secondary">Load synthetic scenario<\/button>/);
+ assert.match(lab,/Live exchange quotes are disabled/);
+ assert.match(ui,/if\(syntheticPreview\)\{disableOutcome\('Protected synthetic profile blocks exchange API requests\.'\);return;\}/);
+ assert.match(ui,/syntheticPreview\?q\.status==='SYNTHETIC_QUOTE'/);
+ assert.match(ui,/function loadSynthetic\(\)/);
+});
+test('public Pages CSP denies exchange connections, unapproved scripts, embeds and forms',()=>{
  const tag=lab.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/);
- assert.ok(tag,'Standalone calculator must have a Content-Security-Policy');
+ assert.ok(tag,'Calculator page must have an enforcing Content-Security-Policy');
  const csp=tag[1];
  for(const clause of ["default-src 'none'","script-src 'self'","object-src 'none'",
-                      "frame-src 'none'","form-action 'none'","base-uri 'none'"])
+    "frame-src 'none'","form-action 'none'","base-uri 'none'","connect-src 'none'"])
    assert.ok(csp.includes(clause),'CSP missing '+clause);
  assert.doesNotMatch(csp,/script-src[^;]*unsafe-inline|unsafe-eval/);
- const connect=csp.match(/(?:^|; )connect-src ([^;]+)/);
- assert.ok(connect,'Explicit exchange API egress allowlist required');
- const names=connect[1].trim().split(/\s+/);
- assert.equal(names.length,10);
- assert.equal(new Set(names).size,10);
- for(const host of names)assert.match(host,/^https:\/\/[a-z0-9.-]+$/i);
- const expected=[
-  'api.kraken.com','api.exchange.coinbase.com','api.gemini.com',
-  'api.bybit.com','www.okx.com','api.kucoin.com','api.gateio.ws',
-  'api-pub.bitfinex.com','api.huobi.pro','api.crypto.com'
- ];
- assert.deepEqual(names.map(n=>new URL(n).hostname).sort(),expected.sort());
- assert.doesNotMatch(csp,/connect-src[^;]*\*/);
+ assert.doesNotMatch(csp,/connect-src[^;]*https:|connect-src[^;]*\*/);
 });

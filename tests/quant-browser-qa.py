@@ -209,57 +209,42 @@ def protected_preview_browser(browser):
 
 
 def asset_change_inflight_race(browser):
-    """A delayed BTC source scan must never repaint an ETH panel."""
+    """Public synthetic asset switch must invalidate previous quote and export."""
     page=browser.new_page(viewport={"width":1280,"height":800})
-    # The source-module object is frozen: intercept fetch before module load.
-    # All 10 public requests remain synthetic and pending until after asset switch.
-    page.add_init_script("""(() => {
-      window.__pendingSourceResponses=[];
-      window.fetch=(input,options)=>new Promise(resolve=>{
-        window.__pendingSourceResponses.push({url:String(input),resolve});
-      });
-    })()""")
     page.goto(URL,wait_until="domcontentloaded")
-    page.locator("#refresh").click()
     expect(page.locator("#refresh")).to_be_disabled()
-    page.wait_for_function("window.__pendingSourceResponses.length===10",timeout=5000)
+    expect(page.locator("#load-synthetic")).to_be_visible()
+    page.locator("#load-synthetic").click()
+    expect(page.locator("#scan-status")).to_contain_text("SYNTHETIC")
+    page.locator("#venues button").first.click()
+    page.locator("#calculate").click()
+    expect(page.locator("#export")).to_be_enabled()
     page.locator("#asset").select_option("ETH")
     expect(page.locator("#scan-status")).to_contain_text("Asset changed")
-    # A structurally valid late Kraken BTC quote plus nine invalid responses.
-    page.evaluate("""() => {
-      window.__pendingSourceResponses.forEach(({url,resolve}) => {
-        const payload=url.includes("kraken.com")
-          ? {error:[],result:{XXBTZUSD:{a:["101"],b:["100"]}}}
-          : {};
-        resolve(new Response(JSON.stringify(payload), {
-          status:200,headers:{"Content-Type":"application/json"}
-        }));
-      });
-    }""")
-    expect(page.locator("#refresh")).to_be_enabled(timeout=5000)
-    expect(page.locator("#scan-status")).to_contain_text("Asset changed")
-    assert page.locator("#venues tr").count()==0,"late BTC response repainted ETH results"
-    assert page.locator("#venues button").count()==0
+    assert page.locator("#venues tr").count()==0
     assert page.locator("#chosen option").count()==0
-    assert page.locator("#export").is_disabled()
+    expect(page.locator("#export")).to_be_disabled()
     assert page.locator("#net").inner_text()=="—"
+    page.locator("#load-synthetic").click()
+    assert "ETH/USD" in page.locator("#venues").inner_text()
+    assert "BTC/USD" not in page.locator("#venues").inner_text()
     page.close()
-    print("QUANT_INFLIGHT_ASSET_RACE_PASS: stale BTC responses discarded after ETH switch; export locked")
-
+    print("QUANT_SYNTHETIC_ASSET_ISOLATION_PASS: no BTC quote or export survives switching to ETH")
 
 def deterministic(browser):
-    page=browser.new_page(accept_downloads=True, viewport={"width":1280,"height":900})
+    """Public Pages static file journey — all market inputs synthetic, no quotes."""
+    page=browser.new_page(accept_downloads=True,viewport={"width":1280,"height":900})
     page.goto(URL)
     assert "CREATED BY PROOF & SIGNAL" in page.locator("header").inner_text().upper()
     assert "Financial controls locked" in page.locator("body").inner_text()
-    page.route("https://**/*",route_mock)
-    page.locator("#refresh").click()
-    expect(page.locator("#scan-status")).to_contain_text("9/10",timeout=25000)
-    assert page.locator("#venues tr").count()==10
-    assert "HTTP 403" in page.locator("#venues").inner_text()
-    assert page.locator("#venues button").count()==9
+    expect(page.locator("#refresh")).to_be_disabled()
+    expect(page.locator("#load-synthetic")).to_be_visible()
+    page.locator("#load-synthetic").click()
+    expect(page.locator("#scan-status")).to_contain_text("SYNTHETIC")
+    assert page.locator("#venues tr").count()==1
+    assert "SYNTHETIC" in page.locator("#venues").inner_text()
     page.locator("#venues button").first.click()
-    expect(page.locator("#chosen")).to_have_value("Kraken")
+    expect(page.locator("#chosen")).to_have_value("SYNTHETIC DEMO")
     page.locator("#exit").fill("110")
     page.locator("#fee-in").fill("10")
     page.locator("#fee-out").fill("10")
@@ -270,86 +255,88 @@ def deterministic(browser):
     expect(page.locator("#calc-status")).to_contain_text("HYPOTHETICAL")
     assert "USD" in page.locator("#net").inner_text()
     assert "NOT VERIFIED" in page.locator("#breakdown").inner_text()
-    assert "NO EXECUTION" in page.locator("#calc-status").inner_text()
-    assert "NO_ACCOUNT_FEES" in page.locator("#breakdown").inner_text()
     with page.expect_download() as download:
         page.locator("#export").click()
     data=json.loads(Path(download.value.path()).read_text())
     assert data["scope"]=="NOT_PAPER_ELIGIBLE"
-    assert data["scenario"]["financiallyEligiblePaper"] is False
+    assert data["quote"]["status"]=="SYNTHETIC_QUOTE"
+    assert data["quote"]["venue"]=="SYNTHETIC DEMO"
     assert data["scenario"]["allowedToTrade"] is False
-    assert data["quote"]["venue"]=="Kraken"
-    assert data["quote"]["quoteCurrency"]=="USD"
-    assert data["scenario"]["conditionalNetQuote"] is not None
+    assert data["scenario"]["financiallyEligiblePaper"] is False
+    assert data["scenario"]["verifiedNet"] is None
+    assert "SYNTHETIC_FIXTURE_NOT_MARKET_DATA" in data["scenario"]["reasonCodes"]
     page.locator("#fee-in").fill("")
     page.locator("#calculate").click()
     assert "VERIFY" in page.locator("#calc-status").inner_text()
-    assert page.locator("#export").is_disabled()
+    expect(page.locator("#export")).to_be_disabled()
     assert page.locator("#net").inner_text()=="—"
     page.locator("#direction").select_option("SHORT")
     assert "VERIFY" in page.locator("#calc-status").inner_text()
-    # No PAPER storage or order calls. The standalone module is isolated.
     assert page.evaluate("Object.keys(localStorage).filter(k => /paper|trade|fomo/i.test(k))")==[]
-    page.screenshot(path=str(OUT/"desktop-mocked.png"),full_page=True)
+    page.screenshot(path=str(OUT/"public-synthetic-desktop.png"),full_page=True)
     page.close()
     mobile=browser.new_page(viewport={"width":390,"height":844},device_scale_factor=2)
     mobile.goto(URL)
-    mobile.route("https://**/*",route_mock)
-    mobile.locator("#refresh").click()
-    expect(mobile.locator("#scan-status")).to_contain_text("9/10",timeout=25000)
-    assert mobile.locator("#calculate").is_visible()
-    assert mobile.locator("#asset").is_visible()
-    assert mobile.locator("#calculator").bounding_box() is not None
-    # Tabular overflow must be contained within tablewrap, not document.
+    expect(mobile.locator("#refresh")).to_be_disabled()
+    mobile.locator("#asset").select_option("SOL")
+    mobile.locator("#load-synthetic").click()
+    mobile.locator("#venues button").first.click()
+    mobile.locator("#calculate").click()
+    expect(mobile.locator("#export")).to_be_enabled()
+    assert "SOL/USD" in mobile.locator("#venues").inner_text()
     overflow=mobile.evaluate("document.documentElement.scrollWidth - innerWidth")
-    assert overflow <= 2, f"mobile body horizontal overflow {overflow}"
-    mobile.screenshot(path=str(OUT/"mobile390-mocked.png"),full_page=True)
+    assert overflow<=2,f"public synthetic Pages 390px horizontal overflow {overflow}"
+    mobile.screenshot(path=str(OUT/"public-synthetic-mobile390.png"),full_page=True)
     mobile.close()
-    print("CHROMIUM_MOCKED_UI_PASS: ten configured / nine synthetic response fixtures, source selection, fees, export, fail-closed, 390px viewport, no PAPER writes")
+    print("PUBLIC_PAGES_SYNTHETIC_UI_PASS: BTC/ETH/SOL fixture, fee+cost model, JSON, 390px Chrome, no PAPER writes")
 
-def live_browser(browser):
+def public_pages_guard(browser):
+    """CSP must block a real exchange domain, not just a fake host/CORS."""
     page=browser.new_page(viewport={"width":1360,"height":850})
-    errors=[]
-    page.on("console",lambda m: errors.append(m.text[:240]) if m.type=="error" else None)
+    market_requests=[]
+    page.on("request",lambda r: market_requests.append(r.url) if "api.kraken.com" in r.url else None)
     page.goto(URL)
-    page.locator("#refresh").click()
-    expect(page.locator("#refresh")).to_be_enabled(timeout=55000)
-    result=page.evaluate("""() => {
-      const t = Array.from(document.querySelectorAll("#venues tr"));
-      return {url:location.href, status:document.querySelector("#scan-status").textContent,
-        rows:t.map(r=>({text:r.innerText.slice(0,440),url:r.querySelector("a")?.href||null}))};
-    }""")
-    # Production-like CSP permits connections only to the 10 declared venues.
-    # No exploratory market calls from a released browser build.
-    result["csp_installed"] = page.locator('meta[http-equiv="Content-Security-Policy"]').count()==1
-    assert result["csp_installed"], "CSP absent in browser"
-    result["csp_origin_block_proof"] = page.evaluate("""async () => {
+    assert page.locator('meta[name="quant-preview-mode"][content="synthetic"]').count()==1
+    assert page.locator('meta[http-equiv="Content-Security-Policy"]').count()==1
+    blocked=page.evaluate("""async () => {
+      return await new Promise(async resolve => {
+        const handler=e=>{
+          if(e.effectiveDirective==='connect-src' &&
+             e.blockedURI.includes('api.kraken.com')){
+            clearTimeout(timeout);
+            document.removeEventListener('securitypolicyviolation',handler);
+            resolve(e.blockedURI);
+          }
+        };
+        const timeout=setTimeout(()=>{
+          document.removeEventListener('securitypolicyviolation',handler);
+          resolve(null);
+        },2500);
+        document.addEventListener('securitypolicyviolation',handler);
+        const controller=new AbortController();
+        const abort=setTimeout(()=>controller.abort(),2200);
         try {
-            await fetch("https://example.invalid/unapproved-endpoint", {
-                mode: "cors", credentials: "omit", cache: "no-store"
-            });
-            return "BAD_UNEXPECTED_CONNECT";
-        } catch(e) {
-            return "DENIED_EXPECTED";
-        }
+          await fetch('https://api.kraken.com/0/public/Time',
+            {mode:'cors',credentials:'omit',signal:controller.signal});
+        }catch(e){}
+        clearTimeout(abort);
+      });
     }""")
-    assert result["csp_origin_block_proof"] == "DENIED_EXPECTED"
-    result["captured_at_utc"]=datetime.now(timezone.utc).isoformat()
-    result["origin_kind"]="LOOPBACK_CHROMIUM_NOT_PROTECTED_HTTPS"
-    result["browser_console_errors"]=errors[:20]
-    result["source_details_available_to_client"]=True
-    result["live_chromium_source_gate"]="REVIEW" # filled below by observed per-row evidence
-    rows=result["rows"]
-    observed=sum("RECEIVED · " in x["text"] for x in rows)
-    result["observed_sources"]=observed
-    result["configured_sources"]=10
-    result["live_chromium_source_gate"]="PASS_SOURCE_READ_ONLY" if observed>=6 else "VERIFY_BROWSER_SOURCE_COVERAGE"
-    result["PAPER_eligibility_gate"]="LOCKED"
-    (OUT/"live-browser-source-evidence.json").write_text(json.dumps(result,indent=2,ensure_ascii=False)+"\n")
-    page.screenshot(path=str(OUT/"live-browser-localhost.png"),full_page=True)
-    print("CHROMIUM_REAL_CORS_RESULT "+json.dumps(result,ensure_ascii=False))
+    assert blocked and "api.kraken.com" in blocked, (
+        "public Pages fixture must block official market API by connect-src CSP")
+    assert market_requests==[], "public Pages must never initiate exchange network requests"
+    evidence={"scope":"PUBLIC_STATIC_LOCALHOST_PROOF_NOT_HOSTED_ORIGIN",
+      "captured_at_utc":datetime.now(timezone.utc).isoformat(),
+      "public_fixture":"SYNTHETIC_ONLY",
+      "csp_market_api_blocked":"PASS",
+      "actual_market_requests":market_requests,
+      "market_data_rights":"NOT_VERIFIED",
+      "physical_samsung":"NOT_TESTED",
+      "real_capital":"LOCKED"}
+    (OUT/"public-static-csp-evidence.json").write_text(
+      json.dumps(evidence,indent=2)+"\n")
+    print("PUBLIC_MARKET_DATA_EGRESS_DENIED: official Kraken fetch rejected by CSP before network; no license claim")
     page.close()
-    return result
 
 def main():
     server=subprocess.Popen(["python","-m","http.server",str(PORT),"--bind","127.0.0.1"],
@@ -372,7 +359,7 @@ def main():
             bundled_dashboard_navigation(browser)
             asset_change_inflight_race(browser)
             deterministic(browser)
-            live_browser(browser)
+            public_pages_guard(browser)
             browser.close()
     finally:
         server.terminate()

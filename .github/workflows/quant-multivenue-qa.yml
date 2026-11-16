@@ -1,4 +1,4 @@
-name: Quant Six-Venue Research QA
+name: Quant Public Synthetic + Research QA
 on:
   pull_request:
     paths:
@@ -34,18 +34,16 @@ jobs:
           node --check quant-profit-calc.js
           node --check quant-market-lab.js
           node --test tests/quant-multivenue.mjs tests/quant-release-invariants.mjs tests/quant-protected-preview.mjs
-      - name: Read-only live six-venue diagnostic, fail-closed unavailable markets
-        run: node tests/quant-exchange-live-smoke.mjs
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Install Chromium Playwright controller (preinstalled Chrome)
         run: pip install playwright
-      - name: Chromium real UI QA and local-origin CORS audit
+      - name: Chromium public synthetic UI and no-exchange-egress QA
         run: |
           google-chrome --version
           python tests/quant-browser-qa.py
-      - name: Save source URL and status evidence from runner
+      - name: Save synthetic QA evidence from runner
         if: always()
         uses: actions/upload-artifact@v4
         with:
