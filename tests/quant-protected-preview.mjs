@@ -26,6 +26,7 @@ test('cannot start unprotected, weak or external-client preview',()=>{
  }])assert.throws(()=>createPreviewServer(cfg),/requires/);
  assert.throws(()=>createPreviewServer({username:user,password,audience:'public'}),/license-locked/);
  assert.throws(()=>createPreviewServer({username:user,password,audience:'client'}),/license-locked/);
+ assert.throws(()=>createPreviewServer({username:user,password,profile:'live'}),/license-locked/);
 });
 test('denies all public artifact reads without strong credentials',async()=>{
  for(const path of ['/', '/index.html', '/quant-market-lab.html',
@@ -46,7 +47,7 @@ test('fails closed on incorrect basic authentication',async()=>{
 });
 test('authenticated client accesses exact same-origin Quant and Calculator assets',async()=>{
  const H={Authorization:authorization};
- for(const path of ['/', '/index.html','/quant-market-lab.html',
+ for(const path of ['/index.html?mode=sim','/quant-market-lab.html',
   '/quant-market-sources.js','/quant-profit-calc.js','/quant-market-lab.js',
   '/derivatives-shadow.js']){
   const r=await request(path,{headers:H});
@@ -58,7 +59,14 @@ test('authenticated client accesses exact same-origin Quant and Calculator asset
  }
  const a=await request('/quant-market-lab.html',{headers:H});
  assert.match(a.headers.get('content-security-policy'),/script-src 'self'/);
- assert.match(a.headers.get('content-security-policy'),/connect-src https:\/\/api.kraken.com/);
+ assert.match(a.headers.get('content-security-policy'),/connect-src 'none'/);
+ assert.equal(a.headers.get('x-quant-preview-profile'),'SYNTHETIC_ONLY');
+ assert.match(await a.text(),/name="quant-preview-mode" content="synthetic"/);
+ const root=await request('/',{headers:H});
+ assert.equal(root.status,302);
+ assert.equal(root.headers.get('location'),'/index.html?mode=sim');
+ const live=await request('/index.html?mode=live',{headers:H});
+ assert.equal(live.status,302);
  assert.match(a.headers.get('content-security-policy'),/form-action 'none'/);
  const main=await request('/',{headers:H});
  assert.match(await main.text(),/id="quantProfitLauncher"/);

@@ -4,6 +4,8 @@
 const $=id=>document.getElementById(id);
 const api=window.FomoMarketSources,model=window.FomoQuantProfit;
 let quotes=[],result=null,scanning=false,scanGeneration=0;
+const syntheticPreview=!!document.querySelector('meta[name="quant-preview-mode"][content="synthetic"]');
+const eligibleQuote=q=>q&&(q.status==='OBSERVED_QUOTE'||(syntheticPreview&&q.status==='SYNTHETIC_QUOTE'));
 const money=(x,c)=>Number.isFinite(x)?new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:6}).format(x)+' '+c:'—';
 const when=x=>Number.isFinite(x)?new Date(x).toISOString().replace('T',' ').slice(0,19)+' UTC':'UNAVAILABLE';
 function cell(row,value){
@@ -17,10 +19,10 @@ function disableOutcome(message){
 }
 function chosenQuote(){
  const val=$('chosen').value;
- return quotes.find(q=>q.venue===val&&q.asset===$('asset').value&&q.status==='OBSERVED_QUOTE')||null;
+ return quotes.find(q=>q.venue===val&&q.asset===$('asset').value&&eligibleQuote(q))||null;
 }
 function sourceSelected(name){
- const q=quotes.find(x=>x.venue===name&&x.asset===$('asset').value&&x.status==='OBSERVED_QUOTE');
+ const q=quotes.find(x=>x.venue===name&&x.asset===$('asset').value&&eligibleQuote(x));
  if(!q||Date.now()-q.fetchedAt>api.MAX_AGE_MS){disableOutcome('Missing/stale source. Refresh first.');return;}
  $('chosen').value=q.venue;
  const expected=q.ask*1.01;
@@ -34,32 +36,38 @@ function render(){
  picker.replaceChildren();const d=document.createElement('option');d.value='';d.textContent='Select observed source';picker.append(d);
  for(const q of quotes){
   const r=document.createElement('tr');cell(r,q.venue+' · '+q.asset+'/'+q.quoteCurrency);
-  cell(r,q.status==='OBSERVED_QUOTE'?money(q.bid,q.quoteCurrency):'—');
-  cell(r,q.status==='OBSERVED_QUOTE'?money(q.ask,q.quoteCurrency):'—');
-  cell(r,q.status==='OBSERVED_QUOTE'?
+  cell(r,eligibleQuote(q)?money(q.bid,q.quoteCurrency):'—');
+  cell(r,eligibleQuote(q)?money(q.ask,q.quoteCurrency):'—');
+  cell(r,q.status==='SYNTHETIC_QUOTE'?'GENERATED · '+when(q.fetchedAt):q.status==='OBSERVED_QUOTE'?
     (q.providerAt?when(q.providerAt)+' · '+q.providerTimeKind:'Retrieval '+when(q.fetchedAt)):'No valid quote');
   const e=document.createElement('td'),link=document.createElement('a');
-  const pill=document.createElement('span');pill.className='pill '+(q.status==='OBSERVED_QUOTE'?'':'bad');
-  pill.textContent=q.status==='OBSERVED_QUOTE'?(q.verification==='PROVIDER_TIME_CHECKED'?'RECEIVED · TIMED':'RECEIVED · RETRIEVAL ONLY'):'VERIFY';
+  const pill=document.createElement('span');pill.className='pill '+(eligibleQuote(q)?'':'bad');
+  pill.textContent=q.status==='SYNTHETIC_QUOTE'?'SYNTHETIC · NOT MARKET DATA':q.status==='OBSERVED_QUOTE'?(q.verification==='PROVIDER_TIME_CHECKED'?'RECEIVED · TIMED':'RECEIVED · RETRIEVAL ONLY'):'VERIFY';
   e.append(pill,document.createTextNode(' '));
-  link.href=q.sourceUrl;link.target='_blank';link.rel='noopener noreferrer';link.textContent='API source';
+  if(q.status==='SYNTHETIC_QUOTE'){
+    link.textContent='Locally generated fixture — no exchange API';
+  }else{
+    link.href=q.sourceUrl;link.target='_blank';link.rel='noopener noreferrer';link.textContent='API source';
+  }
   e.append(link);
   if(q.reason){const note=document.createElement('div');note.className='mini';note.textContent=q.reason;e.append(note);}
   r.append(e);
   const a=document.createElement('td');
-  if(q.status==='OBSERVED_QUOTE'){
+  if(eligibleQuote(q)){
    const b=document.createElement('button');b.className='secondary';b.textContent='Use quote';
    b.onclick=()=>sourceSelected(q.venue);a.append(b);
    const op=document.createElement('option');op.value=q.venue;op.textContent=q.venue+' · '+q.asset+'/'+q.quoteCurrency;picker.append(op);
   }else a.textContent='NOT ELIGIBLE';
   r.append(a);body.append(r);
  }
- if(quotes.some(q=>q.venue===before&&q.status==='OBSERVED_QUOTE'))picker.value=before;
+ if(quotes.some(q=>q.venue===before&&eligibleQuote(q)))picker.value=before;
  const ok=quotes.filter(q=>q.status==='OBSERVED_QUOTE').length;
+ if(syntheticPreview){$('scan-status').textContent='SYNTHETIC · locally generated scenario · NO EXCHANGE API · PAPER LOCKED';return;}
  $('scan-status').textContent=ok+'/'+api.NAMES.length+' public spot sources returned structurally valid bid/ask in this browser. '+
    'Quoted data is indicative, non-atomic and not executable. Unavailable/blocked remain VERIFY.';
 }
 async function scan(){
+ if(syntheticPreview){disableOutcome('Protected synthetic profile blocks exchange API requests.');return;}
  if(scanning)return;scanning=true;
  const requestAsset=$('asset').value,requestGeneration=++scanGeneration;
  $('refresh').disabled=true;disableOutcome('Refreshing source snapshots; prior inputs cannot be carried forward as fresh execution evidence.');
@@ -77,6 +85,18 @@ async function scan(){
    $('scan-status').textContent='VERIFY · '+String(e.message||e).slice(0,150);
  }
  finally{scanning=false;$('refresh').disabled=false;}
+}
+function loadSynthetic(){
+ if(!syntheticPreview)return;
+ const asset=$('asset').value,base={BTC:100,ETH:50,SOL:10}[asset];
+ if(!Number.isFinite(base))return;
+ scanGeneration++;
+ quotes=[{venue:'SYNTHETIC DEMO',asset,quoteCurrency:'USD',
+   marketType:'SPOT',symbol:asset+'/USD',status:'SYNTHETIC_QUOTE',
+   bid:base,ask:base*1.01,fetchedAt:Date.now(),
+   providerAt:null,providerTimeKind:'SYNTHETIC',verification:'SYNTHETIC',
+   sourceUrl:null,reason:'Local training fixture, not an exchange price or trade'}];
+ render();disableOutcome('SYNTHETIC ONLY · choose Use quote, adjust costs and calculate.');
 }
 function kvm(label,value){
  const tr=document.createElement('tr');cell(tr,label);cell(tr,value);$('breakdown').append(tr);
@@ -105,7 +125,7 @@ function calculate(){
  $('roi').className=x.conditionalRoiPct<0?'negative':'positive';
  $('breakeven').textContent=money(x.breakevenExitQuote,x.currency);
  const b=$('breakdown');b.replaceChildren();
- kvm('Observed entry bid / ask',money(q.bid,x.currency)+' / '+money(q.ask,x.currency));
+ kvm(q.status==='SYNTHETIC_QUOTE'?'Synthetic entry bid / ask':'Observed entry bid / ask',money(q.bid,x.currency)+' / '+money(q.ask,x.currency));
  kvm('Directional entry proxy',money(x.entryFillProxy,x.currency));
  kvm('Hypothetical exit proxy',money(x.exitFillProxy,x.currency));
  kvm('Reference asset quantity',String(x.quantity));
@@ -116,7 +136,7 @@ function calculate(){
  kvm('Source timestamp',when(x.quoteTime));
  kvm('Finance, FX, depth, tax', 'NOT VERIFIED · outside model');
  kvm('Reason codes',x.reasonCodes.join(' · '));
- $('calc-message').textContent='Quote-only sensitivity, not a prediction, trade signal, realized profit, '+
+ $('calc-message').textContent=(q.status==='SYNTHETIC_QUOTE'?'SYNTHETIC PRICES ONLY. No exchange market data. ':'')+'Quote-only sensitivity, not a prediction, trade signal, realized profit, '+
    'or qualifying PAPER checkpoint. Source '+q.venue+' '+q.symbol+'. Account fees, execution, '+
    'market impact, financing and quote conversion remain unverified.';
  $('export').disabled=false;
@@ -135,6 +155,13 @@ function exportEvidence(){
  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 $('refresh').onclick=scan;
+$('load-synthetic').onclick=loadSynthetic;
+if(syntheticPreview){
+ $('refresh').disabled=true;
+ $('refresh').title='External exchange data disabled in this protected preview';
+ $('load-synthetic').hidden=false;
+ $('scan-status').textContent='SYNTHETIC PREVIEW · load a local example; live sources disabled.';
+}
 $('asset').onchange=()=>{scanGeneration++;quotes=[];result=null;$('chosen').replaceChildren();$('venues').replaceChildren();
  $('scan-status').textContent='Asset changed; refresh sources again.';disableOutcome('Asset changed; quote cleared.');};
 $('calculate').onclick=calculate;

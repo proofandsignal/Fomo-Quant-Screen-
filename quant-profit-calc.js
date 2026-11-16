@@ -25,7 +25,7 @@
       reasonCodes:['SYNTHETIC_EXIT','NO_EXECUTION','NO_ORDERBOOK_DEPTH',
         'NO_ACCOUNT_FEES','NO_BORROW_OR_MARGIN_VERIFICATION','NO_LIVE_CAPITAL']};
     const s=input&&input.source;
-    if(!s||s.status!=='OBSERVED_QUOTE'||s.marketType!=='SPOT'||!['USD','USDT'].includes(s.quoteCurrency)||
+    if(!s||!['OBSERVED_QUOTE','SYNTHETIC_QUOTE'].includes(s.status)||s.marketType!=='SPOT'||!['USD','USDT'].includes(s.quoteCurrency)||
        !['BTC','ETH','SOL'].includes(s.asset)||!Number.isFinite(s.fetchedAt)||
        !['LONG','SHORT'].includes(input.side))
       return {...base,reasonCodes:[...base.reasonCodes,'SOURCE_OR_DIRECTION_INVALID']};
@@ -58,6 +58,7 @@
       ?(effEntry*(1+entryFee/BPS)+other/quantity)/((1-slipExit/BPS)*(1-exitFee/BPS))
       :(effEntry*(1-entryFee/BPS)-other/quantity)/((1+slipExit/BPS)*(1+exitFee/BPS));
     const reasons=[...base.reasonCodes];
+    if(s.status==='SYNTHETIC_QUOTE')reasons.push('SYNTHETIC_FIXTURE_NOT_MARKET_DATA');
     if(input.side==='SHORT')reasons.push('SPOT_SHORT_IS_DIRECTIONAL_PROXY_ONLY');
     if(s.verification!=='PROVIDER_TIME_CHECKED')reasons.push('RETRIEVAL_TIMESTAMP_ONLY');
     if(s.quoteCurrency==='USDT')reasons.push('USDT_NOT_EQUIVALENT_TO_USD');

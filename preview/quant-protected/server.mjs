@@ -21,24 +21,12 @@ const files=Object.freeze({
   '/derivatives-shadow.js':'derivatives-shadow.js'
 });
 const type=p=>p.endsWith('.js')?'text/javascript; charset=utf-8':'text/html; charset=utf-8';
-const CORS_ALLOWED=[
-  'https://api.kraken.com',
-  'https://api.exchange.coinbase.com',
-  'https://api.gemini.com',
-  'https://api.bybit.com',
-  'https://www.okx.com',
-  'https://api.kucoin.com',
-  'https://api.gateio.ws',
-  'https://api-pub.bitfinex.com',
-  'https://api.huobi.pro',
-  'https://api.crypto.com'
-];
-const CALC_CSP=[
-  "default-src 'none'","script-src 'self'","style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:","font-src 'self'",
-  'connect-src '+CORS_ALLOWED.join(' '),
-  "object-src 'none'","frame-src 'none'","base-uri 'none'",
-  "form-action 'none'","upgrade-insecure-requests"
+const SYNTHETIC_CSP=[
+  "default-src 'none'","script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com data:","img-src 'self' data:",
+  "connect-src 'none'","object-src 'none'","frame-src 'none'",
+  "base-uri 'none'","form-action 'none'","upgrade-insecure-requests"
 ].join('; ');
 
 function hash(input){return createHash('sha256').update(input).digest();}
@@ -68,8 +56,8 @@ function parseCredentials(header){
   const separator=value.indexOf(':');
   return separator>=1?{user:value.slice(0,separator),password:value.slice(separator+1)}:null;
 }
-export function createPreviewServer({username,password,allowHttpLocal=false,trustProxyHttps=false,audience='internal'}={}){
-  if(audience!=='internal')throw Error('External client market-data preview is license-locked');
+export function createPreviewServer({username,password,allowHttpLocal=false,trustProxyHttps=false,audience='internal',profile='synthetic'}={}){
+  if(audience!=='internal'||profile!=='synthetic')throw Error('External/live market-data preview is license-locked');
   if(typeof username!=='string'||username.length<3||typeof password!=='string'||password.length<16)
     throw Error('Protected preview requires QUANT_PREVIEW_USER and a strong QUANT_PREVIEW_PASSWORD (>=16 chars)');
   const expectedUser=username,expectedPass=password;
@@ -105,10 +93,18 @@ export function createPreviewServer({username,password,allowHttpLocal=false,trus
     failed.delete(ip);
     const path=files[url.pathname];
     if(!path){finish(res,404,'Not found\n');return;}
+    if(path==='index.html'&&url.searchParams.get('mode')!=='sim'){
+      finish(res,302,'Synthetic mode required\n',{'Location':'/index.html?mode=sim'});return;
+    }
     try{
-      const bytes=await readFile(resolve(ROOT,path));
-      const headers={'Content-Type':type(path)};
-      if(url.pathname==='/quant-market-lab.html')headers['Content-Security-Policy']=CALC_CSP;
+      let bytes=await readFile(resolve(ROOT,path));
+      const headers={'Content-Type':type(path),'Content-Security-Policy':SYNTHETIC_CSP,
+                     'X-Quant-Preview-Profile':'SYNTHETIC_ONLY'};
+      if(path==='quant-market-lab.html'){
+        const html=bytes.toString('utf8');
+        if(!html.includes('</head>'))throw Error('Missing market-lab head');
+        bytes=html.replace('</head>','<meta name="quant-preview-mode" content="synthetic">\n</head>');
+      }
       finish(res,200,bytes,headers);
     }catch(e){
       finish(res,503,'Preview asset unavailable\n');
@@ -121,6 +117,7 @@ if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
     password:process.env.QUANT_PREVIEW_PASSWORD,
     allowHttpLocal:process.env.QUANT_PREVIEW_ALLOW_HTTP_LOCALHOST==='1',
     audience:process.env.QUANT_PREVIEW_AUDIENCE||'internal',
+    profile:process.env.QUANT_PREVIEW_PROFILE||'synthetic',
     trustProxyHttps:process.env.RENDER_SERVICE_TYPE==='web' &&
       Boolean(process.env.RENDER_SERVICE_ID&&process.env.RENDER_EXTERNAL_HOSTNAME)
   });

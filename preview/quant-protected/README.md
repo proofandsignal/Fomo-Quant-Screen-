@@ -75,3 +75,9 @@ Do not use the localhost HTTP override in a hosted environment.
 `BUILD + LOCAL AUTH QA → INDEPENDENT REVIEW + VENUE RIGHTS → PROTECTED HTTPS → DEPLOYED BROWSER QA → SAMSUNG → HUMAN APPROVAL`
 
 `MERGE HOLD · DEPLOY HOLD · NO REAL FUNDS`
+
+## 16 Nov 2026 — LICENSE-SAFE SYNTHETIC PROFILE (DRAFT)
+
+Protected preview defaults to `QUANT_PREVIEW_PROFILE=synthetic` and rejects `live`, `client` or `public` startup profiles. Both main and calculator pages are served with `connect-src 'none'`; unauthenticated content remains 401 and the main dashboard is redirected to `?mode=sim`. Market Lab exposes a clearly labeled **Load synthetic scenario** button; all displayed fixture bid/ask values are invented examples, tagged `SYNTHETIC_QUOTE` and exported as `NOT_PAPER_ELIGIBLE`. No exchange API requests are allowed by the protected preview CSP. Normal source adapters remain part of the draft bundle but unavailable to the protected preview. Never remove the CSP or switch to external LIVE without signed venue permissions and independent Security/Legal review.
+
+This improves *internal* browser QA without changing the public release gates: `MERGE HOLD · DEPLOY HOLD · PHYSICAL SAMSUNG PENDING · HUMAN APPROVAL PENDING · NO REAL FUNDS`.
