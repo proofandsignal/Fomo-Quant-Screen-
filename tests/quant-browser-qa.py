@@ -348,7 +348,7 @@ def premium_demo_browser(browser):
     assert page.locator("html").get_attribute("lang")=="en"
     expect(page.locator("h1#hero-title")).to_contain_text("Catch the signal.")
     expect(page.get_by_label("FOMO Quant geometric radar logo")).to_be_visible()
-    assert "Created by Proof & Signal" in page.locator(".brand").inner_text()
+    assert "CREATED BY PROOF & SIGNAL" in page.locator(".brand").inner_text().upper()
     page.locator("#explore-cta").click()
     assert page.url.endswith("#experience")
     expect(page.locator("#decision")).to_have_text("WATCH")
