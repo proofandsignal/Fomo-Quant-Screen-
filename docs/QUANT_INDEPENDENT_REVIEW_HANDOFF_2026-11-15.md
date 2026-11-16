@@ -1,6 +1,50 @@
 # QUANT-REVIEW-002 — Independent release reviewer handoff
 
 **Prepared 15 November 2026 · intentionally unsigned**
+
+## CURRENT REVIEW TARGET — 16 NOV 2026 UPDATE
+
+**Supersedes historical code SHAs and earlier LIVE-preview instructions elsewhere in this document.** This document is a **handoff, not an independent sign-off**.
+
+- Exact implementation candidate before this documentation-only commit: `bb9e0bbb5f375e7cba72b8e147a0636aae7d4854` on Draft [PR #20](https://github.com/proofandsignal/Fomo-Quant-Screen-/pull/20). Reviewer must record and inspect **current final HEAD** at time of approval; a docs-only update changes the commit SHA and an app/code update invalidates source-specific approval.
+- Atomic bundle: FOMO Quant Screen + Position Planner + PAPER Security + Market Sources + Profit Calculator. Security changes from PR #15 **are integrated into Draft PR #20**; they are not yet merged to `main`.
+- Protected preview is **SYNTHETIC_ONLY**: requires authentication; `/index.html?mode=sim`; `connect-src 'none'` on the protected origin; deliberately generated `SYNTHETIC_QUOTE`; exported `NOT_PAPER_ELIGIBLE`; no live order or account APIs. The old advice to test external BTC/ETH/SOL exchange quotes on this protected preview is **not applicable**. Public quote research on separate loopback Chromium remains internal and has unapproved third-party redistribution rights.
+- [Research + protected Browser QA run](https://github.com/proofandsignal/Fomo-Quant-Screen-/actions/runs/43885446481) PASS: **28/28 Node tests**, authenticated local Chromium 390px, synthetic export, verified CSP-blocked attempt to Kraken, same-origin CTA navigation and in-flight asset race. [Reliability](https://github.com/proofandsignal/Fomo-Quant-Screen-/actions/runs/43885446540), [Bybit Diagnostic](https://github.com/proofandsignal/Fomo-Quant-Screen-/actions/runs/43885446528), [Bybit Shadow](https://github.com/proofandsignal/Fomo-Quant-Screen-/actions/runs/43885446401) PASS.
+- [Full FOMO CI](https://github.com/proofandsignal/Fomo-Quant-Screen-/actions/runs/43885446521) FAIL at unchanged reviewed-JavaScript fingerprint gate `tests/derivatives-isolation.mjs`. Seven preceding functional steps PASS. **Do not update or disable the pin without independent source review and signed approval.**
+- Independent reviewer submitted approvals: **0** on PR #15 and **0** on PR #20 at last check. Market licensing approval: **0 confirmed**. HTTPS Render Quant preview: **NOT DEPLOYED**. Physical Samsung: **PENDING**. Human approval: **PENDING**. PAPER 48/60 **USER-REPORTED / NOT INDEPENDENTLY AUDITED**. Real capital: **LOCKED**.
+
+### Reviewer reproducibility — current candidate
+
+```sh
+git clone https://github.com/proofandsignal/Fomo-Quant-Screen-.git
+cd Fomo-Quant-Screen-
+git fetch origin build/multivenue-profit-calculator-v01
+git checkout bb9e0bbb5f375e7cba72b8e147a0636aae7d4854
+node --check preview/quant-protected/server.mjs
+node --check quant-market-lab.js
+node --check quant-profit-calc.js
+node --test tests/quant-multivenue.mjs tests/quant-release-invariants.mjs tests/quant-protected-preview.mjs
+node tests/planner-paper-ready.mjs
+node tests/birdeye-security-contract.mjs
+node tests/paper-live-entry-gate.mjs
+node tests/derivatives-isolation.mjs
+```
+
+**Expected:** deterministic tests pass; `derivatives-isolation.mjs` fails on purpose pending independent review of the changed application JavaScript. Separately reproduce Chromium only in an isolated environment with Playwright + Chrome by running `python tests/quant-browser-qa.py`; **that script also performs real public API read-only diagnostics from LOCALHOST** and should be run only after checking permitted internal use. A synthetic protected browser run must not be mistaken for a hosted HTTPS run.
+
+### Independent decisions to return
+
+1. **Security:** exact commit SHA, reviewed code diff, read-only isolation, Basic Auth / trusted proxy / CSP threat model, live PAPER gate and cached-security bypass checks; an explicit **APPROVE / REMEDIATE / BLOCKED** decision on any fingerprint rebaseline.
+2. **Financial:** independently recomputed LONG and hypothetical SHORT, price/time identity, fees/slippage, PnL assumptions, storage and PAPER sample integrity; NEVER mark hypothetical profits as verified.
+3. **Legal / IP:** protected **synthetic-only** internal QA versus separately licensed **client-facing market data** are distinct decisions. Each live venue needs a dated source-specific determination before public quotes; review [Issue #22](https://github.com/proofandsignal/Fomo-Quant-Screen-/issues/22).
+4. Signed reviewer identity, independence, qualifications, UTC date, evidence links, exact HEAD, unresolved findings and `PASS / REVIEW / BLOCKED` per discipline in [Issue #21](https://github.com/proofandsignal/Fomo-Quant-Screen-/issues/21) and PR review. An author/assistant comment is not a separate reviewer.
+5. **Only after required approvals:** authorized private Render HTTPS, exact deployed SHA, external browser QA, physical Samsung QA by owner, then explicit Human Approval; no partial Quant-versus-Calculator release.
+
+`BUILD TESTS PASS · INDEPENDENT SIGNOFF PENDING · FINGERPRINT HOLD · HTTPS NOT DEPLOYED · SAMSUNG PENDING · PUBLIC RELEASE HOLD · LIVE CAPITAL LOCKED`
+
+---
+
+
 **Bundle:** FOMO Quant Screen + Market Sources + Profit Calculator (ONE release)
 **Draft PR:** https://github.com/proofandsignal/Fomo-Quant-Screen-/pull/20
 **Control issue:** https://github.com/proofandsignal/Fomo-Quant-Screen-/issues/21

@@ -1,5 +1,24 @@
 # QUANT RELEASE EVIDENCE REGISTER — 16 Nov 2026
 
+## CURRENT EVIDENCE DELTA — 16 NOV 2026
+
+**Authoritative candidate code before this documentation-only update:** `bb9e0bbb5f375e7cba72b8e147a0636aae7d4854` (Draft PR #20). The SHA `96c49235...` cited in the original register below is **historical**, not today's code. An independent reviewer must inspect the final current HEAD, not use the old snapshot.
+
+| Control | Latest independent-of-author automated evidence | Decision |
+|---|---|---|
+| Synthetic-only restricted preview | [GitHub QA 43885446481](https://github.com/proofandsignal/Fomo-Quant-Screen-/actions/runs/43885446481): 28/28 Node PASS; local authenticated Chromium PASS; CSP denied external Kraken fetch; 390px responsive Chromium; synthetic JSON export `NOT_PAPER_ELIGIBLE` | **LOCAL TECHNICAL PASS ONLY** |
+| Reliability & Bybit | [Reliability](https://github.com/proofandsignal/Fomo-Quant-Screen-/actions/runs/43885446540), [Bybit Diagnostic](https://github.com/proofandsignal/Fomo-Quant-Screen-/actions/runs/43885446528), [Bybit Shadow](https://github.com/proofandsignal/Fomo-Quant-Screen-/actions/runs/43885446401) SUCCESS | **PASS in scoped CI** |
+| Full Main CI | [Main 43885446521](https://github.com/proofandsignal/Fomo-Quant-Screen-/actions/runs/43885446521) fails on *unchanged* `derivatives-isolation` reviewed-source fingerprint guard; prior seven steps PASS | **FAIL / REVIEW HOLD**, not all green |
+| External independent Security + Financial + Legal/IP | No approved PR review; venue rights [#22](https://github.com/proofandsignal/Fomo-Quant-Screen-/issues/22) pending | **PENDING** |
+| Protected HTTPS, physical Samsung, owner final approval | No FOMO Quant Render deployment proven; localhost tests ≠ hosted HTTPS; phone test not recorded | **HOLD / PENDING** |
+
+**Scope correction:** this restricted preview is **SYNTHETIC ONLY** and blocks outbound market-data access with CSP. The earlier checklist for provider-by-provider LIVE quotes belongs to a **separate, future licensed live-market release**, not the current synthetic-only demonstration. The user-reported PAPER 48/60 remains unverified and LIVE CAPITAL is locked.
+
+The documentation below is retained as historical traceability. Wherever it says the original SHA is the current exact review target, **use the candidate and current HEAD above instead**. Full review must still cover the integrated PR #15 security modifications.
+
+---
+
+
 **Scope:** ONE product release: FOMO Quant Screen + Risk/PAPER Security + Market Sources + Profit Calculator. **No partial release.**
 
 **Exact code under review:** `96c49235a1b11c2d99483df77bc541173e097e31` on [Draft PR #20](https://github.com/proofandsignal/Fomo-Quant-Screen-/pull/20).

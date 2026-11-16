@@ -1,6 +1,6 @@
 # Quant + Profit Calculator — Protected Preview Runbook (NOT DEPLOYED)
 
-**Status (15 Nov 2026): DRAFT BUILD READY, INDEPENDENT SECURITY/FINANCIAL/LEGAL/IP REVIEW PENDING, HTTPS HOLD.**
+**Status (16 Nov 2026): SYNTHETIC_ONLY LOCAL QA 28/28 PASS, independent Security/Financial/Legal/IP sign-off PENDING, unchanged fingerprint HOLD, protected HTTPS NOT DEPLOYED.**
 
 This runbook prepares a no-paid-API, one-origin preview for the **entire** Quant and Profit Calculator bundle. It does not grant permission to deploy, publish data, or share provider API outputs outside authorized internal research.
 
@@ -81,3 +81,13 @@ Do not use the localhost HTTP override in a hosted environment.
 Protected preview defaults to `QUANT_PREVIEW_PROFILE=synthetic` and rejects `live`, `client` or `public` startup profiles. Both main and calculator pages are served with `connect-src 'none'`; unauthenticated content remains 401 and the main dashboard is redirected to `?mode=sim`. Market Lab exposes a clearly labeled **Load synthetic scenario** button; all displayed fixture bid/ask values are invented examples, tagged `SYNTHETIC_QUOTE` and exported as `NOT_PAPER_ELIGIBLE`. No exchange API requests are allowed by the protected preview CSP. Normal source adapters remain part of the draft bundle but unavailable to the protected preview. Never remove the CSP or switch to external LIVE without signed venue permissions and independent Security/Legal review.
 
 This improves *internal* browser QA without changing the public release gates: `MERGE HOLD · DEPLOY HOLD · PHYSICAL SAMSUNG PENDING · HUMAN APPROVAL PENDING · NO REAL FUNDS`.
+
+## Post-review deployment preflight — 16 Nov 2026
+
+**Current candidate implementation:** `bb9e0bbb5f375e7cba72b8e147a0636aae7d4854` (documentation changes may advance HEAD). Never deploy from `main` / GitHub Pages, and never silently enable live quote mode. Validate GitHub PR #20 final HEAD, required independent approvals and exact reviewed fingerprint before enabling a Render preview.
+
+**Synthetic-only access acceptance** (after authorization): anonymous `/` → 401; authenticated `/` → 302 to `/index.html?mode=sim`; `/quant-market-lab.html` → 200 with `X-Quant-Preview-Profile: SYNTHETIC_ONLY` and CSP `connect-src 'none'`; `Load synthetic scenario` → hypothetical calculation and JSON tagged `SYNTHETIC_QUOTE`, `NOT_PAPER_ELIGIBLE`, `allowedToTrade:false`; no provider network traffic. Direct tests of market API egress must be blocked by CSP.
+
+**Only post-HTTPS:** browser open, actual HTTPS certificate/access check, exact SHA, desktop navigation and 390px responsive visual QA, then **physical Samsung** and owner approval. DO NOT test LIVE venue reads inside this profile or claim licensing clearance.
+
+No new service, passwords or hosted route is authorized by this document. `DEPLOY HOLD` remains.
