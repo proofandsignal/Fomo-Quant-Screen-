@@ -130,10 +130,55 @@ def protected_preview_browser(browser):
         page.locator("#calculate").click()
         expect(page.locator("#export")).to_be_enabled()
         assert "SYNTHETIC" in page.locator("#breakdown").inner_text().upper()
+        with page.expect_download() as export:
+            page.locator("#export").click()
+        evidence=json.loads(Path(export.value.path()).read_text())
+        assert evidence["quote"]["status"]=="SYNTHETIC_QUOTE"
+        assert evidence["scope"]=="NOT_PAPER_ELIGIBLE"
+        assert evidence["scenario"]["allowedToTrade"] is False
+        assert evidence["scenario"]["financiallyEligiblePaper"] is False
+        assert evidence["scenario"]["verifiedNet"] is None
+        assert "SYNTHETIC_FIXTURE_NOT_MARKET_DATA" in evidence["scenario"]["reasonCodes"]
+        # Prove CSP, not CORS or DNS, blocks an otherwise supported exchange host.
+        csp_block=page.evaluate("""async () => {
+            let violation=null;
+            const handler=e=>{
+                if(e.effectiveDirective==='connect-src') violation=e.blockedURI;
+            };
+            document.addEventListener('securitypolicyviolation',handler);
+            const controller=new AbortController();
+            const abort=setTimeout(()=>controller.abort(),2500);
+            try {
+                await fetch('https://api.kraken.com/0/public/Time',
+                  {mode:'cors',credentials:'omit',signal:controller.signal});
+            } catch(e) {}
+            clearTimeout(abort);
+            document.removeEventListener('securitypolicyviolation',handler);
+            return violation;
+        }""")
+        assert csp_block and "api.kraken.com" in csp_block, (
+            "Synthetic private preview must reject market API via connect-src CSP")
         page.locator("#fee-out").fill("25")
         expect(page.locator("#export")).to_be_disabled()
         assert page.locator("#net").inner_text()=="—"
         page.screenshot(path=str(OUT/"auth-protected-bundle-mocked.png"),full_page=True)
+        # This is responsive Chrome emulation, NOT a physical Samsung QA pass.
+        mobile=ctx.new_page(viewport={"width":390,"height":844})
+        mobile.goto(protected+"/index.html?mode=sim",wait_until="domcontentloaded")
+        mobile.locator("#quantProfitLauncher").click()
+        mobile.wait_for_url("**/quant-market-lab.html",timeout=12000)
+        expect(mobile.locator("#load-synthetic")).to_be_visible()
+        mobile.locator("#load-synthetic").click()
+        mobile.locator("#venues button").first.click()
+        mobile.locator("#calculate").click()
+        expect(mobile.locator("#export")).to_be_enabled()
+        horizontal_overflow=mobile.evaluate(
+            "document.documentElement.scrollWidth - innerWidth")
+        assert horizontal_overflow<=2, (
+            f"protected synthetic calculator 390px overflow: {horizontal_overflow}")
+        mobile.screenshot(path=str(OUT/"auth-protected-mobile390-synthetic.png"),
+                          full_page=True)
+        mobile.close()
         ctx.close()
         (OUT/"protected-local-auth-evidence.json").write_text(
             json.dumps({"scope":"LOCALHOST_ONLY_NO_HTTPS",
@@ -141,9 +186,12 @@ def protected_preview_browser(browser):
                         "browser_authenticated_navigation":"PASS",
                         "anonymous_access_denied":"PASS",
                         "source_prices":"SYNTHETIC_FIXTURES",
+                        "external_market_connection_csp":"DENIED_VERIFIED",
+                        "synthetic_export_not_paper":"PASS",
+                        "responsive_chrome_390px":"PASS_NOT_PHYSICAL_PHONE",
                         "financial_export_after_input_change":"DISABLED",
                         "physical_samsung":"NOT_TESTED"},indent=2)+"\n")
-        print("QUANT_PROTECTED_LOCAL_CHROMIUM_PASS: auth 401, header->calculator, synthetic quotes, stale export invalidated; HTTPS/Samsung/Legal pending")
+        print("QUANT_PROTECTED_LOCAL_CHROMIUM_PASS: auth 401, synthetic-only browser/API CSP denial, exported NOT_PAPER_ELIGIBLE JSON, 390px responsive Chrome; HTTPS/Samsung/Legal pending")
     finally:
         proc.terminate()
         try:proc.wait(timeout=3)
