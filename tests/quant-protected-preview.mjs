@@ -68,7 +68,7 @@ test('authenticated client accesses exact same-origin Quant and Calculator asset
  const live=await request('/index.html?mode=live',{headers:H});
  assert.equal(live.status,302);
  assert.match(a.headers.get('content-security-policy'),/form-action 'none'/);
- const main=await request('/',{headers:H});
+ const main=await request('/index.html?mode=sim',{headers:H});
  assert.match(await main.text(),/id="quantProfitLauncher"/);
  const calc=await request('/quant-market-lab.html',{headers:H});
  assert.match(await calc.text(),/Profit Calculator/);
