@@ -13,6 +13,8 @@ jobs:
           node-version: '22'
       - run: node tests/planner-smoke.mjs
       - run: node tests/planner-paper-ready.mjs
+      - run: node tests/birdeye-security-contract.mjs
+      - run: node tests/paper-live-entry-gate.mjs
       - run: node tests/low-base-accel.mjs
       - run: node tests/paper-24h-checkpoints.mjs
       - run: node tests/derivatives-shadow.mjs

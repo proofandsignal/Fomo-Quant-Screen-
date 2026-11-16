@@ -27,9 +27,10 @@ const token={
   m:{price:0.001,liq:100000,mc:500000},
   f:{volUnit:3},
   s:{radar:82,copy:75,risk:40,ess:70},
-  securityGate:{status:'PASS'},
+  securityGate:{status:'PASS'}, sec:{source:'birdeye:token_security',tokenAddress:'ABC123',chain:'solana',ts:Date.now(),freeze:false,top10:10,mutable:false,mintable:false,transferFee:false},
   reasons:[]
 };
+const approvedSecurity={...token.sec};
 S.tokens.set(token.key,token);
 
 const downloads=[];
@@ -40,7 +41,6 @@ const sandbox={
     paper:{feePct:0.3},
     plan:{slMult:2,slMin:6,slMax:25}
   },
-  securityGateOf:t=>t.securityGate||{status:'UNKNOWN'},
   qsDirection:t=>'LONG',
   slip:(size,liq)=>0.5,
   clamp:(x,a,b)=>Math.max(a,Math.min(b,x)),
@@ -64,6 +64,10 @@ const sandbox={
   console
 };
 vm.createContext(sandbox);
+const securityStart=html.indexOf('function birdeyeSecurityEvidence(d,t,ts=Date.now()){');
+const securityEnd=html.indexOf('\nfunction download(',securityStart);
+assert.ok(securityStart>=0&&securityEnd>securityStart,'real securityGateOf source missing');
+vm.runInContext(html.slice(securityStart,securityEnd),sandbox,{timeout:1500});
 vm.runInContext(code+'\nthis.PlannerRef=Planner;',sandbox,{timeout:1500});
 const P=sandbox.PlannerRef;
 P.render=()=>{};
@@ -85,6 +89,49 @@ assert.equal(ax.decision,'ALLOW PAPER','Analyst decision extraction');
 S.planner.analyst=analyst;
 S.planner.analystExtract=ax;
 S.planner.analystKey=token.key;
+
+
+// Missing or mismatched Analyst identity must never authorize PAPER.
+S.planner.analystExtract={...ax,contract:null};
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','missing Analyst contract must fail closed');
+S.planner.analystExtract={...ax,contract:'WRONG'};
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','mismatched Analyst contract must fail closed');
+S.planner.analystExtract=ax;
+
+// Fail-closed negative regression: unknown security, invalid entry and weak Analyst approval.
+token.sec=null;
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','missing raw security must not authorize PAPER despite cached PASS');
+token.sec={...approvedSecurity};
+// Exercise the actual application security gate; a cached PASS must not bypass missing,
+// mismatched, stale or malformed primary security evidence.
+for (const [label, patch] of [
+  ['wrong source',{source:'untrusted'}],
+  ['wrong token',{tokenAddress:'DIFFERENT'}],
+  ['wrong chain',{chain:'ethereum'}],
+  ['missing freeze',{freeze:null}],
+  ['missing holder percent',{top10:null}],
+  ['negative holder percent',{top10:-1}],
+  ['holder percent above 100',{top10:101}],
+  ['numeric string holder percent',{top10:'10'}],
+  ['non-finite holder percent',{top10:NaN}],
+  ['missing mutable',{mutable:null}],
+  ['expired timestamp',{ts:Date.now()-16*60000}],
+  ['future timestamp',{ts:Date.now()+60000}]
+]) {
+  token.sec={...approvedSecurity,...patch};
+  assert.equal(sandbox.securityGateOf(token).status,'UNKNOWN',label+' security evidence must be UNKNOWN');
+  assert.notEqual(P.gate(token).status,'ALLOW PAPER',label+' must not authorize PAPER');
+}
+token.sec={...approvedSecurity};
+token.entryState='OUT OF ZONE';
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','out-of-zone entry must not authorize PAPER');
+token.entryState='IN ZONE';
+S.planner.analystExtract={...ax,decision:'WATCH'};
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','Analyst LONG without explicit ALLOW PAPER must not authorize PAPER');
+S.planner.analystExtract=ax;
+token.decision='WATCH';
+assert.notEqual(P.gate(token).status,'ALLOW PAPER','Quant WATCH must not authorize PAPER');
+token.decision='ALLOW PAPER';
 
 assert.equal(P.gate(token).status,'ALLOW PAPER','valid Quant + Analyst must pass gate');
 P.build();
