@@ -162,7 +162,7 @@ def asset_change_inflight_race(browser):
     }""")
     page.locator("#refresh").click()
     expect(page.locator("#refresh")).to_be_disabled()
-    assert page.evaluate("window.__scanAsset")==="BTC"
+    assert page.evaluate("window.__scanAsset")=="BTC"
     page.locator("#asset").select_option("ETH")
     expect(page.locator("#scan-status")).to_contain_text("Asset changed")
     page.evaluate("""() => {
