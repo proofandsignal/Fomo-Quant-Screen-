@@ -153,12 +153,12 @@ def asset_change_inflight_race(browser):
     page=browser.new_page(viewport={"width":1280,"height":800})
     # The source-module object is frozen: intercept fetch before module load.
     # All 10 public requests remain synthetic and pending until after asset switch.
-    page.add_init_script("""() => {
+    page.add_init_script("""(() => {
       window.__pendingSourceResponses=[];
       window.fetch=(input,options)=>new Promise(resolve=>{
         window.__pendingSourceResponses.push({url:String(input),resolve});
       });
-    }""")
+    })()""")
     page.goto(URL,wait_until="domcontentloaded")
     page.locator("#refresh").click()
     expect(page.locator("#refresh")).to_be_disabled()
