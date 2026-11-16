@@ -3,7 +3,7 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const api=window.FomoMarketSources,model=window.FomoQuantProfit;
-let quotes=[],result=null,scanning=false;
+let quotes=[],result=null,scanning=false,scanGeneration=0;
 const money=(x,c)=>Number.isFinite(x)?new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:6}).format(x)+' '+c:'—';
 const when=x=>Number.isFinite(x)?new Date(x).toISOString().replace('T',' ').slice(0,19)+' UTC':'UNAVAILABLE';
 function cell(row,value){
@@ -20,7 +20,7 @@ function chosenQuote(){
  return quotes.find(q=>q.venue===val&&q.asset===$('asset').value&&q.status==='OBSERVED_QUOTE')||null;
 }
 function sourceSelected(name){
- const q=quotes.find(x=>x.venue===name&&x.status==='OBSERVED_QUOTE');
+ const q=quotes.find(x=>x.venue===name&&x.asset===$('asset').value&&x.status==='OBSERVED_QUOTE');
  if(!q||Date.now()-q.fetchedAt>api.MAX_AGE_MS){disableOutcome('Missing/stale source. Refresh first.');return;}
  $('chosen').value=q.venue;
  const expected=q.ask*1.01;
@@ -61,11 +61,21 @@ function render(){
 }
 async function scan(){
  if(scanning)return;scanning=true;
+ const requestAsset=$('asset').value,requestGeneration=++scanGeneration;
  $('refresh').disabled=true;disableOutcome('Refreshing source snapshots; prior inputs cannot be carried forward as fresh execution evidence.');
  quotes=[];$('venues').replaceChildren();cell($('venues').insertRow(), 'Fetching '+api.NAMES.length+' configured public sources...');
  $('scan-status').textContent='FETCHING · independently checking '+api.NAMES.length+' public APIs and quote currencies...';
- try{quotes=await api.scan($('asset').value);render();}
- catch(e){$('scan-status').textContent='VERIFY · '+String(e.message||e).slice(0,150);}
+ try{
+  const incoming=await api.scan(requestAsset);
+  // An asset change invalidates all in-flight responses, including failures.
+  // Never repaint an ETH panel with an earlier BTC quote or enable its export.
+  if(requestGeneration!==scanGeneration||$('asset').value!==requestAsset)return;
+  quotes=incoming;render();
+ }
+ catch(e){
+  if(requestGeneration===scanGeneration&&$('asset').value===requestAsset)
+   $('scan-status').textContent='VERIFY · '+String(e.message||e).slice(0,150);
+ }
  finally{scanning=false;$('refresh').disabled=false;}
 }
 function kvm(label,value){
@@ -125,7 +135,7 @@ function exportEvidence(){
  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 $('refresh').onclick=scan;
-$('asset').onchange=()=>{quotes=[];result=null;$('chosen').replaceChildren();$('venues').replaceChildren();
+$('asset').onchange=()=>{scanGeneration++;quotes=[];result=null;$('chosen').replaceChildren();$('venues').replaceChildren();
  $('scan-status').textContent='Asset changed; refresh sources again.';disableOutcome('Asset changed; quote cleared.');};
 $('calculate').onclick=calculate;
 $('export').onclick=exportEvidence;

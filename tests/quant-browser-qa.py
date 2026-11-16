@@ -147,6 +147,43 @@ def protected_preview_browser(browser):
         try:proc.wait(timeout=3)
         except subprocess.TimeoutExpired:proc.kill()
 
+
+def asset_change_inflight_race(browser):
+    """A late BTC response cannot populate an ETH panel or re-enable export."""
+    page=browser.new_page(viewport={"width":1280,"height":800})
+    page.goto(URL,wait_until="domcontentloaded")
+    page.evaluate("""() => {
+      window.__scanAsset=null;
+      window.__resolveOldScan=null;
+      window.__originalScan=window.FomoMarketSources.scan;
+      window.FomoMarketSources.scan=(asset)=>new Promise(resolve=>{
+        window.__scanAsset=asset;window.__resolveOldScan=resolve;
+      });
+    }""")
+    page.locator("#refresh").click()
+    expect(page.locator("#refresh")).to_be_disabled()
+    assert page.evaluate("window.__scanAsset")==="BTC"
+    page.locator("#asset").select_option("ETH")
+    expect(page.locator("#scan-status")).to_contain_text("Asset changed")
+    page.evaluate("""() => {
+      window.__resolveOldScan([{
+        venue:"Kraken",asset:"BTC",quoteCurrency:"USD",symbol:"BTC/USD",
+        marketType:"SPOT",bid:100,ask:101,fetchedAt:Date.now(),
+        status:"OBSERVED_QUOTE",verification:"RETRIEVAL_ONLY",
+        sourceUrl:"https://api.kraken.com/0/public/Ticker?pair=BTCUSD"
+      }]);
+    }""")
+    expect(page.locator("#refresh")).to_be_enabled(timeout=5000)
+    expect(page.locator("#scan-status")).to_contain_text("Asset changed")
+    assert page.locator("#venues tr").count()==0,"late BTC response repainted ETH results"
+    assert page.locator("#venues button").count()==0
+    assert page.locator("#chosen option").count()==0
+    assert page.locator("#export").is_disabled()
+    assert page.locator("#net").inner_text()=="—"
+    page.evaluate("window.FomoMarketSources.scan=window.__originalScan")
+    page.close()
+    print("QUANT_INFLIGHT_ASSET_RACE_PASS: outdated BTC replies discarded after ETH selection, export locked")
+
 def deterministic(browser):
     page=browser.new_page(accept_downloads=True, viewport={"width":1280,"height":900})
     page.goto(URL)
@@ -270,6 +307,7 @@ def main():
                                       args=["--no-sandbox","--disable-dev-shm-usage"])
             protected_preview_browser(browser)
             bundled_dashboard_navigation(browser)
+            asset_change_inflight_race(browser)
             deterministic(browser)
             live_browser(browser)
             browser.close()
