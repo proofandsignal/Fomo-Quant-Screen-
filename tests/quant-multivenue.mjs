@@ -169,3 +169,44 @@ test('pure calculator stale input, negative/huge input and tampered quotes remai
   assert.equal(out.verifiedNet,null);
  }
 });
+
+test('financial oracle blocks overflow and underflow from tiny positive inputs',()=>{
+ const source=result('Kraken');
+ const base={source,side:'LONG',notional:1000,scenarioExitPrice:110,
+  entryFeeBps:10,exitFeeBps:10,entrySlippageBps:0,exitSlippageBps:0,
+  extraCostQuote:0,nowAt:now};
+ for(const broken of [
+  {source:{...source,bid:1e-320,ask:2e-320},scenarioExitPrice:1e9},
+  {source:{...source,bid:1e-300,ask:2e-300},scenarioExitPrice:1e9},
+  {notional:Number.MIN_VALUE}
+ ]){
+  const out=profit.calc({...base,...broken});
+  assert.equal(out.conditionalNetQuote,undefined,'no false numeric scenario from '+JSON.stringify(broken));
+  assert.equal(out.conditionalRoiPct,undefined);
+  assert.equal(out.verifiedNet,null);
+  assert.equal(out.allowedToTrade,false);
+  assert.equal(out.financiallyEligiblePaper,false);
+  assert.ok(out.reasonCodes.includes('NONFINITE_FINANCIAL_RESULT'));
+ }
+});
+test('zero notional, negative or non-finite costs reject; negative hypothetical returns remain valid losses',()=>{
+ const source=result('Kraken');
+ const base={source,side:'LONG',notional:1000,scenarioExitPrice:90,
+  entryFeeBps:10,exitFeeBps:10,entrySlippageBps:0,exitSlippageBps:0,
+  extraCostQuote:0,nowAt:now};
+ for(const broken of [
+  {notional:0},{notional:-1},{entryFeeBps:-1},{exitFeeBps:NaN},
+  {entrySlippageBps:Infinity},{extraCostQuote:-0.01},{scenarioExitPrice:Infinity}
+ ]){
+  const out=profit.calc({...base,...broken});
+  assert.equal(out.conditionalNetQuote,undefined);
+  assert.equal(out.verifiedNet,null);
+  assert.equal(out.allowedToTrade,false);
+ }
+ const loss=profit.calc(base);
+ assert.ok(Number.isFinite(loss.conditionalNetQuote));
+ assert.ok(loss.conditionalNetQuote<0,'negative scenario is a valid hypothetical loss');
+ assert.equal(loss.verifiedNet,null);
+ assert.equal(loss.allowedToTrade,false);
+ assert.equal(loss.economicStatus,'VERIFY');
+});

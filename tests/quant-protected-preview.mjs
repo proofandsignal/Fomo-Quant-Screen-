@@ -3,6 +3,7 @@
  */
 import test, {beforeEach, afterEach} from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {createPreviewServer} from '../preview/quant-protected/server.mjs';
 
 const user='internal_qa', password='example-only-not-live-secret-56-strong';
@@ -189,4 +190,34 @@ test('brute-force throttling denies repeated unknown clients without revealing p
  assert.equal(blocked.status,429);
  assert.equal(blocked.headers.get('retry-after'),'60');
  assert.doesNotMatch(await blocked.text(),/Market Sources|Calculator/);
+});
+
+test('F-02 exact real asset bytes behind authentication with CSP (no stub)',async()=>{
+ const assets=[
+  ['/','premium-demo.html'],
+  ['/premium-demo.html','premium-demo.html'],
+  ['/premium-demo-engine.js','premium-demo-engine.js'],
+  ['/premium-demo-ui.js','premium-demo-ui.js'],
+  ['/quant-profit-calc.js','quant-profit-calc.js'],
+  ['/quant-market-sources.js','quant-market-sources.js']
+ ];
+ for(const [route,file] of assets){
+  const denied=await request(route);
+  assert.equal(denied.status,401,'unauthenticated real asset: '+route);
+  const authenticated=await request(route,{headers:{Authorization:authorization}});
+  assert.equal(authenticated.status,200,'authenticated real asset: '+route);
+  assert.equal(authenticated.headers.get('x-quant-preview-profile'),'SYNTHETIC_ONLY');
+  assert.match(authenticated.headers.get('content-security-policy')||'',/connect-src 'none'/);
+  assert.match(authenticated.headers.get('content-security-policy')||'',/object-src 'none'/);
+  assert.match(authenticated.headers.get('cache-control')||'',/no-store/);
+  assert.equal(authenticated.headers.get('x-content-type-options'),'nosniff');
+  const actual=await authenticated.text();
+  const expected=readFileSync(new URL('../'+file,import.meta.url),'utf8');
+  assert.equal(actual,expected,'real repository asset served byte-for-byte: '+route);
+  if(file==='premium-demo.html'){
+   assert.match(actual,/<html lang="en">/);
+   assert.match(actual,/id="explore-cta"/);
+   assert.match(actual,/Created by Proof &amp; Signal/);
+  }
+ }
 });
