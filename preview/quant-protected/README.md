@@ -1,3 +1,26 @@
+# FOMO Quant Premium — Access-Protected Synthetic Preview (PRE-DEPLOY)
+
+**Candidate branch:** `integrate/pr24-pr25-independent-review-20261118`.
+**Date:** 2026-11-18.
+**Status:** Source and loopback CI candidates; no hosted Render Preview created.
+
+**Protected URL routing:**
+- Authenticated `/` → **200 Premium English Demo** with original inline SVG logo, cinematic Quant cover, working Explore and four interactive synthetic cases
+- `/premium-demo.html`, `/premium-demo-engine.js`, `/premium-demo-ui.js` → allowed same-origin assets after auth
+- `/quant-market-lab.html` → synthetic-only Profit Calculator
+- `/index.html` is retained as **legacy internal SIM console only**, redirected to `?mode=sim` and blocked from network by CSP; it is not part of approved client presentation
+- No `/docs`, `/tests`, `/.env` or direct source-server path is exposed
+
+**Controls:** Basic Auth with strong per-service environment password (never in source), unauthenticated 401, GET/HEAD only, no-store/noindex/nosniff, HTTPS-required outside localhost, CSP `connect-src 'none'` everywhere, Premium `script-src 'self'` without inline JavaScript, audience `internal` only and profile `synthetic` only.
+
+**Deployment is NOT authorized by this document.** Before creating any service: independent review of combined SHA and hosting threat model; owner authorization for isolated free Render service in **My Workspace**; Auto-Deploy OFF; restricted audience; production and GitHub Pages untouched. Use a fresh secret in Render environment and NEVER paste it into source files or external review bundles.
+
+The provider-specific market data permissions remain unresolved (#22). Physical Samsung and actual HTTPS Browser QA must be performed after an approved hosted preview exists. Do not confuse synthetic browser QA with device QA or full financial release.
+
+`INTEGRATED CI → INDEPENDENT REVIEW → AUTHORIZED PRIVATE HTTPS → HOSTED BROWSER QA → SAMSUNG → HUMAN APPROVAL`
+
+---
+
 # Quant + Profit Calculator — Protected Preview Runbook (NOT DEPLOYED)
 
 **Status (16 Nov 2026): SYNTHETIC_ONLY LOCAL QA 28/28 PASS, independent Security/Financial/Legal/IP sign-off PENDING, unchanged fingerprint HOLD, protected HTTPS NOT DEPLOYED.**

@@ -12,7 +12,10 @@ import { dirname, resolve } from 'node:path';
 
 const ROOT=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
 const files=Object.freeze({
-  '/':'index.html',
+  '/':'premium-demo.html',
+  '/premium-demo.html':'premium-demo.html',
+  '/premium-demo-engine.js':'premium-demo-engine.js',
+  '/premium-demo-ui.js':'premium-demo-ui.js',
   '/index.html':'index.html',
   '/quant-market-lab.html':'quant-market-lab.html',
   '/quant-market-sources.js':'quant-market-sources.js',
@@ -28,6 +31,9 @@ const SYNTHETIC_CSP=[
   "connect-src 'none'","object-src 'none'","frame-src 'none'",
   "base-uri 'none'","form-action 'none'","upgrade-insecure-requests"
 ].join('; ');
+const PREMIUM_CSP=SYNTHETIC_CSP.replace("script-src 'self' 'unsafe-inline'","script-src 'self'").replace(
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com","style-src 'self' 'unsafe-inline'");
+// Premium pages and scripts never import remote fonts or market APIs.
 
 function hash(input){return createHash('sha256').update(input).digest();}
 function same(x,y){return timingSafeEqual(hash(x),hash(y));}
@@ -98,7 +104,8 @@ export function createPreviewServer({username,password,allowHttpLocal=false,trus
     }
     try{
       let bytes=await readFile(resolve(ROOT,path));
-      const headers={'Content-Type':type(path),'Content-Security-Policy':SYNTHETIC_CSP,
+      const premiumAsset=path.startsWith('premium-demo');
+      const headers={'Content-Type':type(path),'Content-Security-Policy':premiumAsset?PREMIUM_CSP:SYNTHETIC_CSP,
                      'X-Quant-Preview-Profile':'SYNTHETIC_ONLY'};
       if(path==='quant-market-lab.html'){
         const html=bytes.toString('utf8');

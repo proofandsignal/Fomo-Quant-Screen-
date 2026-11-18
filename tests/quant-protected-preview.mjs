@@ -30,7 +30,8 @@ test('cannot start unprotected, weak or external-client preview',()=>{
 });
 test('denies all public artifact reads without strong credentials',async()=>{
  for(const path of ['/', '/index.html', '/quant-market-lab.html',
-  '/quant-market-sources.js','/quant-profit-calc.js','/quant-market-lab.js']){
+  '/quant-market-sources.js','/quant-profit-calc.js','/quant-market-lab.js',
+  '/premium-demo.html','/premium-demo-engine.js','/premium-demo-ui.js']){
   const r=await request(path);
   assert.equal(r.status,401,path);
   assert.match(r.headers.get('www-authenticate')||'',/Basic realm=/);
@@ -47,7 +48,8 @@ test('fails closed on incorrect basic authentication',async()=>{
 });
 test('authenticated client accesses exact same-origin Quant and Calculator assets',async()=>{
  const H={Authorization:authorization};
- for(const path of ['/index.html?mode=sim','/quant-market-lab.html',
+ for(const path of ['/','/premium-demo.html','/premium-demo-engine.js','/premium-demo-ui.js',
+  '/index.html?mode=sim','/quant-market-lab.html',
   '/quant-market-sources.js','/quant-profit-calc.js','/quant-market-lab.js',
   '/derivatives-shadow.js']){
   const r=await request(path,{headers:H});
@@ -63,8 +65,19 @@ test('authenticated client accesses exact same-origin Quant and Calculator asset
  assert.equal(a.headers.get('x-quant-preview-profile'),'SYNTHETIC_ONLY');
  assert.match(await a.text(),/name="quant-preview-mode" content="synthetic"/);
  const root=await request('/',{headers:H});
- assert.equal(root.status,302);
- assert.equal(root.headers.get('location'),'/index.html?mode=sim');
+ assert.equal(root.status,200,'private preview root must be Premium English, not legacy index');
+ const premiumBody=await root.text();
+ assert.match(premiumBody,/<html lang="en">/);
+ assert.match(premiumBody,/id="explore-cta"/);
+ assert.match(premiumBody,/Created by Proof &amp; Signal/);
+ assert.doesNotMatch(premiumBody,/id="quantProfitLauncher"/);
+ const premiumCsp=root.headers.get('content-security-policy');
+ assert.match(premiumCsp,/connect-src 'none'/);
+ assert.match(premiumCsp,/script-src 'self';/);
+ assert.doesNotMatch(premiumCsp,/script-src[^;]*unsafe-inline/);
+ const premiumJs=await request('/premium-demo-engine.js',{headers:H});
+ assert.equal(premiumJs.status,200);
+ assert.match(await premiumJs.text(),/SYNTHETIC_FIXTURE/);
  const live=await request('/index.html?mode=live',{headers:H});
  assert.equal(live.status,302);
  assert.match(a.headers.get('content-security-policy'),/form-action 'none'/);
