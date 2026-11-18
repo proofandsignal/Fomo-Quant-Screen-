@@ -112,6 +112,20 @@ def protected_preview_browser(browser):
         ctx=browser.new_context(http_credentials={"username":user,"password":secret},
                                  viewport={"width":1360,"height":880},
                                  accept_downloads=True)
+        # The private first screen must be the Premium English client experience,
+        # not the legacy technical console. Exercise the actual protected-origin
+        # CSP and interactive state, rather than only checking HTML content.
+        premium=ctx.new_page()
+        premium.goto(protected+"/",wait_until="domcontentloaded")
+        assert premium.locator("html").get_attribute("lang")=="en"
+        expect(premium.locator("#explore-cta")).to_be_visible()
+        premium.locator("#explore-cta").click()
+        premium.locator('[data-scenario="concentration"]').click()
+        expect(premium.locator("#decision")).to_have_text("REVIEW")
+        assert "SYNTHETIC" in premium.locator("body").inner_text().upper()
+        assert premium.locator("meta[http-equiv='Content-Security-Policy']").count()==1
+        premium.screenshot(path=str(OUT/"protected-premium-desktop-auth.png"),full_page=True)
+        premium.close()
         page=ctx.new_page()
         page.goto(protected+"/index.html?mode=sim&tick=300",
                   wait_until="domcontentloaded")
@@ -189,11 +203,23 @@ def protected_preview_browser(browser):
         mobile.screenshot(path=str(OUT/"auth-protected-mobile390-synthetic.png"),
                           full_page=True)
         mobile.close()
+        premiumMobile=ctx.new_page()
+        premiumMobile.set_viewport_size({"width":390,"height":844})
+        premiumMobile.goto(protected+"/",wait_until="domcontentloaded")
+        expect(premiumMobile.locator("#explore-cta")).to_be_visible()
+        premiumMobile.locator("#explore-cta").click()
+        premiumMobile.locator('[data-scenario="chase"]').click()
+        expect(premiumMobile.locator("#decision")).to_have_text("NO TRADE")
+        assert premiumMobile.evaluate("document.documentElement.scrollWidth - innerWidth")<=2
+        premiumMobile.screenshot(path=str(OUT/"protected-premium-mobile390-auth.png"),full_page=True)
+        premiumMobile.close()
         ctx.close()
         (OUT/"protected-local-auth-evidence.json").write_text(
             json.dumps({"scope":"LOCALHOST_ONLY_NO_HTTPS",
                         "live_deployment":False,"independent_review":False,
                         "browser_authenticated_navigation":"PASS",
+                        "protected_premium_root_desktop":"PASS",
+                        "protected_premium_root_mobile390":"PASS_NOT_PHYSICAL_PHONE",
                         "anonymous_access_denied":"PASS",
                         "source_prices":"SYNTHETIC_FIXTURES",
                         "external_market_connection_csp":"DENIED_VERIFIED",
