@@ -29,12 +29,18 @@ test('cannot start unprotected, weak or external-client preview',()=>{
  assert.throws(()=>createPreviewServer({username:user,password,profile:'live'}),/license-locked/);
 });
 test('denies all public artifact reads without strong credentials',async()=>{
- for(const path of ['/', '/index.html', '/quant-market-lab.html',
+ const paths=['/', '/index.html', '/quant-market-lab.html',
   '/quant-market-sources.js','/quant-profit-calc.js','/quant-market-lab.js',
-  '/premium-demo.html','/premium-demo-engine.js','/premium-demo-ui.js']){
+  '/premium-demo.html','/premium-demo-engine.js','/premium-demo-ui.js'];
+ for(const [i,path] of paths.entries()){
   const r=await request(path);
-  assert.equal(r.status,401,path);
-  assert.match(r.headers.get('www-authenticate')||'',/Basic realm=/);
+  if(i<8){
+    assert.equal(r.status,401,path);
+    assert.match(r.headers.get('www-authenticate')||'',/Basic realm=/);
+  }else{
+    assert.equal(r.status,429,'ninth failed attempt must be throttled');
+    assert.equal(r.headers.get('retry-after'),'60');
+  }
   assert.doesNotMatch(await r.text(),/FOMO QUANT SCREEN|function calc|No orders/i);
  }
 });
