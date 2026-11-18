@@ -127,6 +127,50 @@ test('HTTPS mandatory outside explicit loopback QA setting',async()=>{
   assert.equal(spoof.status,403,'untrusted direct clients cannot spoof HTTPS');
  }finally{await new Promise(resolve=>s.close(resolve));}
 });
+test('trusted proxy mode rejects invalid Render hostname and loopback X-Forwarded-Proto spoofing',async()=>{
+ assert.throws(
+   ()=>createPreviewServer({username:user,password,trustProxyHttps:true}),
+   /validated RENDER_EXTERNAL_HOSTNAME/
+ );
+ assert.throws(
+   ()=>createPreviewServer({username:user,password,trustProxyHttps:true,renderHostname:'attacker.example'}),
+   /validated RENDER_EXTERNAL_HOSTNAME/
+ );
+ const s=createPreviewServer({username:user,password,trustProxyHttps:true,
+  renderHostname:'fomo-qa.onrender.com'});
+ await new Promise(resolve=>s.listen(0,'127.0.0.1',resolve));
+ try{
+  const endpoint='http://127.0.0.1:'+s.address().port+'/premium-demo.html';
+  const resp=await fetch(endpoint,{headers:{
+    Host:'fomo-qa.onrender.com',Authorization:authorization,
+    'X-Forwarded-Proto':'https','X-Forwarded-For':'198.51.100.42'
+  }});
+  assert.equal(resp.status,403,'forged localhost proxy TLS headers cannot enable external access');
+ } finally { await new Promise(resolve=>s.close(resolve)); }
+});
+test('IP header rotation and intermittent correct login cannot reset global failure budget',async()=>{
+ const bad='Basic '+Buffer.from(user+':invalid').toString('base64');
+ for(let i=0;i<7;i++){
+  const wrong=await request('/premium-demo.html',{headers:{
+    Authorization:bad,'X-Forwarded-For':'198.51.100.'+(i+1),
+    'X-Forwarded-Proto':i%2?'https':'http'
+  }});
+  assert.equal(wrong.status,401,'wrong password attempt '+i);
+  const good=await request('/',{headers:{
+    Authorization:authorization,'X-Forwarded-For':'203.0.113.'+(i+1)
+  }});
+  assert.equal(good.status,200,'prior correct login must not reset accumulated failures');
+ }
+ const last=await request('/premium-demo.html',{headers:{
+    Authorization:bad,'X-Forwarded-For':'198.51.100.99'
+ }});
+ assert.equal(last.status,401);
+ const locked=await request('/',{headers:{
+    Authorization:authorization,'X-Forwarded-For':'203.0.113.123'
+ }});
+ assert.equal(locked.status,429,'eighth failed login triggers per-instance fail-closed lock');
+ assert.equal(locked.headers.get('retry-after'),'60');
+});
 test('health route discloses no service credentials or user data',async()=>{
  const r=await request('/healthz');
  assert.equal(r.status,200);
