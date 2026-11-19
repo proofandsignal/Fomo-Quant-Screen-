@@ -15,7 +15,9 @@ test('premium Demo Contract: English + brand + top-left owned logo + real Explor
  assert.match(html,/href="#experience" id="explore-cta"/);
  assert.match(html,/id="experience"/);
  assert.match(html,/id="framework"/);
- assert.match(html,/href="\.\/quant-market-lab\.html"/);
+ assert.match(html,/href="#trade-planner"/);
+ assert.match(html,/href="https:\/\/fomo\.family\/"/);
+ for(const input of ['CoinGecko','DEX Screener','X'])assert.match(html,new RegExp(input));
  for(const id of ['signal','decision','risk-status','entry','net','paper-gate','export-fixture']) assert.match(html,new RegExp('id="'+id+'"'));
 });
 test('premium Demo Contract: no network, no external fonts/scripts and no live data',()=>{
@@ -27,7 +29,7 @@ test('premium Demo Contract: no network, no external fonts/scripts and no live d
  assert.match(html,/NO REAL ORDERS OR FUNDS/);
 });
 test('every case remains research-only and financially unverified',()=>{
- assert.equal(engine.names.length,4);
+ assert.equal(engine.names.length,6);
  for(const name of engine.names){
   const v=engine.evaluate(name,1000);
   assert.equal(v.sourceType,'SYNTHETIC_FIXTURE');
@@ -45,6 +47,31 @@ test('late chase and stale data cannot show a fake approved entry',()=>{
  assert.equal(stale.decision,'BLOCKED');
  assert.equal(stale.hypotheticalNet,null);
  assert.equal(stale.rr,null);
+});
+test('FOMO-only modes: Spot is not SHORT, Perps LONG and SHORT are fictional unverified listings',()=>{
+ const spot=engine.evaluate('breakout',1000);
+ const lng=engine.evaluate('perpsLong',1000);
+ const sh=engine.evaluate('perpsShort',1000);
+ assert.equal(spot.tradeMode,'FOMO SPOT');assert.equal(spot.side,'BUY');assert.equal(spot.leverage,1);
+ assert.equal(lng.tradeMode,'FOMO PERPS');assert.equal(lng.side,'LONG');assert.equal(lng.leverage,3);
+ assert.equal(sh.tradeMode,'FOMO PERPS');assert.equal(sh.side,'SHORT');assert.equal(sh.leverage,2);
+ for(const t of [spot,lng,sh]){
+   assert.equal(t.fomoMarketVerified,false);
+   assert.equal(t.listingStatus,'FOMO_AVAILABILITY_UNVERIFIED');
+   assert.equal(t.verifiedNet,null);assert.equal(t.allowedToTrade,false);
+   assert.equal(t.paperEligible,false);
+   assert.equal(t.executedOrders,0);
+   assert.ok(t.hypotheticalCosts>0);
+   assert.ok(t.hypotheticalGross>t.hypotheticalNet);
+   assert.ok(t.inputSources.every(s=>s.includes('NOT CONNECTED')));
+ }
+ assert.equal(lng.hypotheticalGross,120);
+ assert.equal(sh.hypotheticalGross,120);
+ assert.ok(lng.hypotheticalNet<lng.hypotheticalGross);
+ assert.ok(sh.hypotheticalNet<sh.hypotheticalGross);
+ assert.ok(sh.hypotheticalRisk>0);
+ assert.equal(sh.rr,1.5);
+ assert.equal(lng.assumedMargin,333.33);
 });
 test('model is deterministic, cost-aware and rejects bad values',()=>{
  const a=engine.evaluate('breakout',1000),b=engine.evaluate('breakout',1000);

@@ -386,6 +386,15 @@ def premium_demo_browser(browser):
     page.locator('[data-scenario="stale"]').click()
     expect(page.locator("#decision")).to_have_text("BLOCKED")
     assert page.locator("#net").inner_text()=="—"
+    page.locator('[data-scenario="perpsLong"]').click()
+    expect(page.locator("#trade-market")).to_have_text("FOMO PERPS")
+    expect(page.locator("#trade-side")).to_have_text("LONG · 3x")
+    assert page.locator("#listing-status").inner_text()=="NO · UNVERIFIED"
+    assert page.locator("#gross").inner_text()!=="—"
+    page.locator('[data-scenario="perpsShort"]').click()
+    expect(page.locator("#trade-side")).to_have_text("SHORT · 2x")
+    assert page.locator("#costs").inner_text()!=="—"
+    assert "NOT CONNECTED" in page.locator("#experience").inner_text()
     page.locator('[data-scenario="breakout"]').click()
     page.locator("#notional").select_option("5000")
     assert page.locator("#capital-display").inner_text()=="$5,000.00"
@@ -398,6 +407,9 @@ def premium_demo_browser(browser):
     assert data["allowedToTrade"] is False
     assert data["verifiedNet"] is None
     assert data["executedOrders"]==0
+    assert data["fomoMarketVerified"] is False
+    assert data["listingStatus"]=="FOMO_AVAILABILITY_UNVERIFIED"
+    assert data["tradeMode"]=="FOMO SPOT"
     assert external==[]
     page.screenshot(path=str(OUT/"premium-desktop-synthetic.png"),full_page=True)
     page.close()
@@ -407,11 +419,13 @@ def premium_demo_browser(browser):
     mobile.locator("#explore-cta").click()
     mobile.locator('[data-scenario="concentration"]').click()
     expect(mobile.locator("#decision")).to_have_text("REVIEW")
+    mobile.locator('[data-scenario="perpsShort"]').click()
+    expect(mobile.locator("#trade-side")).to_have_text("SHORT · 2x")
     overflow=mobile.evaluate("document.documentElement.scrollWidth-innerWidth")
     assert overflow<=2,f"premium demo 390px horizontal overflow {overflow}px"
     mobile.screenshot(path=str(OUT/"premium-mobile390-synthetic.png"),full_page=True)
     mobile.close()
-    print("PREMIUM_ENGLISH_DEMO_BROWSER_PASS: owned logo, cover, CTA, 4 synthetic cases, export, 390px, no API")
+    print("FOMO_SCOPE_PREMIUM_BROWSER_PASS: FOMO Spot/LONG/SHORT fictional cases, 6 scenarios, owned logo, Explore, export, 390px, no API")
 
 def main():
     server=subprocess.Popen(["python","-m","http.server",str(PORT),"--bind","127.0.0.1"],
