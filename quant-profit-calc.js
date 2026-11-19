@@ -48,8 +48,13 @@
     const rawEntry=isLong?Number(s.ask):Number(s.bid);
     const effEntry=rawEntry*(1+(isLong?1:-1)*slipEntry/BPS);
     const effExit=takeExit*(1+(isLong?-1:1)*slipExit/BPS);
-    if(!(effEntry>0&&effExit>0))return {...base,reasonCodes:[...base.reasonCodes,'NONPOSITIVE_ADJUSTED_FILL']};
+    if(!Number.isFinite(effEntry)||!Number.isFinite(effExit)||!(effEntry>0&&effExit>0))
+      return {...base,reasonCodes:[...base.reasonCodes,'NONPOSITIVE_OR_NONFINITE_ADJUSTED_FILL']};
     const quantity=notional/effEntry;
+    // Finite, positive source quotes can still overflow/underflow intermediary
+    // values (e.g. subnormal price or notional). Never publish invalid PnL.
+    if(!Number.isFinite(quantity)||quantity<=0)
+      return {...base,reasonCodes:[...base.reasonCodes,'NONFINITE_FINANCIAL_RESULT']};
     const entryValue=quantity*effEntry,exitValue=quantity*effExit;
     const feeEntry=entryValue*entryFee/BPS,feeExit=exitValue*exitFee/BPS;
     const gross=(isLong?1:-1)*(exitValue-entryValue);
@@ -57,6 +62,10 @@
     const breakeven=isLong
       ?(effEntry*(1+entryFee/BPS)+other/quantity)/((1-slipExit/BPS)*(1-exitFee/BPS))
       :(effEntry*(1-entryFee/BPS)-other/quantity)/((1+slipExit/BPS)*(1+exitFee/BPS));
+    const conditionalRoiPct=net/notional*100;
+    if(![entryValue,exitValue,feeEntry,feeExit,gross,net,breakeven,conditionalRoiPct].every(Number.isFinite))
+      return {...base,reasonCodes:[...base.reasonCodes,'NONFINITE_FINANCIAL_RESULT']};
+    // Negative conditional net is a legitimate hypothetical loss, NOT an invalid input.
     const reasons=[...base.reasonCodes];
     if(s.status==='SYNTHETIC_QUOTE')reasons.push('SYNTHETIC_FIXTURE_NOT_MARKET_DATA');
     if(input.side==='SHORT')reasons.push('SPOT_SHORT_IS_DIRECTIONAL_PROXY_ONLY');
@@ -68,7 +77,7 @@
       quantity,entryFillProxy:effEntry,exitFillProxy:effExit,
       entryNotionalQuote:entryValue,exitNotionalQuote:exitValue,
       entryFeeQuote:feeEntry,exitFeeQuote:feeExit,otherCostQuote:other,
-      grossQuote:gross,conditionalNetQuote:net,conditionalRoiPct:net/notional*100,
+      grossQuote:gross,conditionalNetQuote:net,conditionalRoiPct,
       breakevenExitQuote:breakeven>0?breakeven:null,
       reasonCodes:reasons,economicStatus:'VERIFY'};
   }
