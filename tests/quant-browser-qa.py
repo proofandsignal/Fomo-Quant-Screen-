@@ -112,6 +112,20 @@ def protected_preview_browser(browser):
         ctx=browser.new_context(http_credentials={"username":user,"password":secret},
                                  viewport={"width":1360,"height":880},
                                  accept_downloads=True)
+        # The private first screen must be the Premium English client experience,
+        # not the legacy technical console. Exercise the actual protected-origin
+        # CSP and interactive state, rather than only checking HTML content.
+        premium=ctx.new_page()
+        premium.goto(protected+"/",wait_until="domcontentloaded")
+        assert premium.locator("html").get_attribute("lang")=="en"
+        expect(premium.locator("#explore-cta")).to_be_visible()
+        premium.locator("#explore-cta").click()
+        premium.locator('[data-scenario="concentration"]').click()
+        expect(premium.locator("#decision")).to_have_text("REVIEW")
+        assert "SYNTHETIC" in premium.locator("body").inner_text().upper()
+        assert premium.locator("meta[http-equiv='Content-Security-Policy']").count()==1
+        premium.screenshot(path=str(OUT/"protected-premium-desktop-auth.png"),full_page=True)
+        premium.close()
         page=ctx.new_page()
         page.goto(protected+"/index.html?mode=sim&tick=300",
                   wait_until="domcontentloaded")
@@ -189,11 +203,23 @@ def protected_preview_browser(browser):
         mobile.screenshot(path=str(OUT/"auth-protected-mobile390-synthetic.png"),
                           full_page=True)
         mobile.close()
+        premiumMobile=ctx.new_page()
+        premiumMobile.set_viewport_size({"width":390,"height":844})
+        premiumMobile.goto(protected+"/",wait_until="domcontentloaded")
+        expect(premiumMobile.locator("#explore-cta")).to_be_visible()
+        premiumMobile.locator("#explore-cta").click()
+        premiumMobile.locator('[data-scenario="chase"]').click()
+        expect(premiumMobile.locator("#decision")).to_have_text("NO TRADE")
+        assert premiumMobile.evaluate("document.documentElement.scrollWidth - innerWidth")<=2
+        premiumMobile.screenshot(path=str(OUT/"protected-premium-mobile390-auth.png"),full_page=True)
+        premiumMobile.close()
         ctx.close()
         (OUT/"protected-local-auth-evidence.json").write_text(
             json.dumps({"scope":"LOCALHOST_ONLY_NO_HTTPS",
                         "live_deployment":False,"independent_review":False,
                         "browser_authenticated_navigation":"PASS",
+                        "protected_premium_root_desktop":"PASS",
+                        "protected_premium_root_mobile390":"PASS_NOT_PHYSICAL_PHONE",
                         "anonymous_access_denied":"PASS",
                         "source_prices":"SYNTHETIC_FIXTURES",
                         "external_market_connection_csp":"DENIED_VERIFIED",
@@ -338,6 +364,69 @@ def public_pages_guard(browser):
     print("PUBLIC_MARKET_DATA_EGRESS_DENIED: official Kraken fetch rejected by CSP before network; no license claim")
     page.close()
 
+def premium_demo_browser(browser):
+    """Interactive English premium synthetic demo acceptance; no live data."""
+    url=f"http://127.0.0.1:{PORT}/premium-demo.html"
+    page=browser.new_page(viewport={"width":1420,"height":900},accept_downloads=True)
+    external=[]
+    page.on("request",lambda r:external.append(r.url) if not r.url.startswith("http://127.0.0.1:") else None)
+    page.goto(url,wait_until="domcontentloaded")
+    assert page.locator("html").get_attribute("lang")=="en"
+    expect(page.locator("h1#hero-title")).to_contain_text("Catch the signal.")
+    expect(page.get_by_label("FOMO Quant geometric radar logo")).to_be_visible()
+    assert "CREATED BY PROOF & SIGNAL" in page.locator(".brand").inner_text().upper()
+    page.locator("#explore-cta").click()
+    assert page.url.endswith("#experience")
+    expect(page.locator("#decision")).to_have_text("WATCH")
+    page.locator('[data-scenario="concentration"]').click()
+    expect(page.locator("#decision")).to_have_text("REVIEW")
+    assert page.locator("#holder-concentration").inner_text()=="68%"
+    page.locator('[data-scenario="chase"]').click()
+    expect(page.locator("#decision")).to_have_text("NO TRADE")
+    page.locator('[data-scenario="stale"]').click()
+    expect(page.locator("#decision")).to_have_text("BLOCKED")
+    assert page.locator("#net").inner_text()=="—"
+    page.locator('[data-scenario="perpsLong"]').click()
+    expect(page.locator("#trade-market")).to_have_text("FOMO PERPS")
+    expect(page.locator("#trade-side")).to_have_text("LONG · 3x")
+    assert page.locator("#listing-status").inner_text()=="NO · UNVERIFIED"
+    assert page.locator("#gross").inner_text()!="—"
+    page.locator('[data-scenario="perpsShort"]').click()
+    expect(page.locator("#trade-side")).to_have_text("SHORT · 2x")
+    assert page.locator("#costs").inner_text()!="—"
+    assert "NOT CONNECTED" in page.locator("#experience").inner_text()
+    page.locator('[data-scenario="breakout"]').click()
+    page.locator("#notional").select_option("5000")
+    assert page.locator("#capital-display").inner_text()=="$5,000.00"
+    with page.expect_download() as download:
+        page.locator("#export-fixture").click()
+    data=json.loads(Path(download.value.path()).read_text())
+    assert data["scope"]=="NOT_PAPER_ELIGIBLE"
+    assert data["sourceType"]=="SYNTHETIC_FIXTURE"
+    assert data["paperEligible"] is False
+    assert data["allowedToTrade"] is False
+    assert data["verifiedNet"] is None
+    assert data["executedOrders"]==0
+    assert data["fomoMarketVerified"] is False
+    assert data["listingStatus"]=="FOMO_AVAILABILITY_UNVERIFIED"
+    assert data["tradeMode"]=="FOMO SPOT"
+    assert external==[]
+    page.screenshot(path=str(OUT/"premium-desktop-synthetic.png"),full_page=True)
+    page.close()
+    mobile=browser.new_page(viewport={"width":390,"height":844},device_scale_factor=2)
+    mobile.goto(url,wait_until="domcontentloaded")
+    expect(mobile.locator("#explore-cta")).to_be_visible()
+    mobile.locator("#explore-cta").click()
+    mobile.locator('[data-scenario="concentration"]').click()
+    expect(mobile.locator("#decision")).to_have_text("REVIEW")
+    mobile.locator('[data-scenario="perpsShort"]').click()
+    expect(mobile.locator("#trade-side")).to_have_text("SHORT · 2x")
+    overflow=mobile.evaluate("document.documentElement.scrollWidth-innerWidth")
+    assert overflow<=2,f"premium demo 390px horizontal overflow {overflow}px"
+    mobile.screenshot(path=str(OUT/"premium-mobile390-synthetic.png"),full_page=True)
+    mobile.close()
+    print("FOMO_SCOPE_PREMIUM_BROWSER_PASS: FOMO Spot/LONG/SHORT fictional cases, 6 scenarios, owned logo, Explore, export, 390px, no API")
+
 def main():
     server=subprocess.Popen(["python","-m","http.server",str(PORT),"--bind","127.0.0.1"],
                             cwd=ROOT,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
@@ -360,6 +449,7 @@ def main():
             asset_change_inflight_race(browser)
             deterministic(browser)
             public_pages_guard(browser)
+            premium_demo_browser(browser)
             browser.close()
     finally:
         server.terminate()

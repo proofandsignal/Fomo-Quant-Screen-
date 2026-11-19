@@ -50,8 +50,12 @@ for(const [name,change] of [
   ['unknown transfer fee',{sec:ctx.birdeyeSecurityEvidence({...source,transferFeeEnable:null},token,now)}],
   ['missing security',{sec:null}],
   ['stale security',{sec:ctx.birdeyeSecurityEvidence(source,token,now-16*60000)}],
+  ['past security beyond 15-minute threshold',{sec:ctx.birdeyeSecurityEvidence(source,token,now-15*60000-2000)}],
+  ['future security timestamp',{sec:ctx.birdeyeSecurityEvidence(source,token,now+2000)}],
   ['active mint',{sec:ctx.birdeyeSecurityEvidence({...source,ownerAddress:'11111111111111111111111111111111'},token,now)}],
   ['stale market',{m:{...token.m,updated:now-125000}}],
+  ['market timestamp absent',{m:{...token.m,updated:undefined}}],
+  ['market timestamp not numeric',{m:{...token.m,updated:'fresh'}}],
   ['future market',{m:{...token.m,updated:now+10000}}],
   ['no entry zone',{entryState:'ABOVE ZONE'}],
   ['cached Quant WATCH',{decision:'WATCH'}]
@@ -63,7 +67,7 @@ for(const [name,change] of [
   assert.equal(paper.open.length,0,name+' cannot create position');
   Object.assign(token,original);
 }
-assert.ok(logs.length>=8,'rejections must be logged');
+assert.ok(logs.length>=12,'security/market freshness rejections must be logged');
 ctx.CFG.mode='sim';
 token.sec=null;
 assert.ok(P.open(token,'auto'),'synthetic SIM preview should remain usable (not live sample)');

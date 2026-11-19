@@ -29,11 +29,18 @@ test('cannot start unprotected, weak or external-client preview',()=>{
  assert.throws(()=>createPreviewServer({username:user,password,profile:'live'}),/license-locked/);
 });
 test('denies all public artifact reads without strong credentials',async()=>{
- for(const path of ['/', '/index.html', '/quant-market-lab.html',
-  '/quant-market-sources.js','/quant-profit-calc.js','/quant-market-lab.js']){
+ const paths=['/', '/index.html', '/quant-market-lab.html',
+  '/quant-market-sources.js','/quant-profit-calc.js','/quant-market-lab.js',
+  '/premium-demo.html','/premium-demo-engine.js','/premium-demo-ui.js'];
+ for(const [i,path] of paths.entries()){
   const r=await request(path);
-  assert.equal(r.status,401,path);
-  assert.match(r.headers.get('www-authenticate')||'',/Basic realm=/);
+  if(i<8){
+    assert.equal(r.status,401,path);
+    assert.match(r.headers.get('www-authenticate')||'',/Basic realm=/);
+  }else{
+    assert.equal(r.status,429,'ninth failed attempt must be throttled');
+    assert.equal(r.headers.get('retry-after'),'60');
+  }
   assert.doesNotMatch(await r.text(),/FOMO QUANT SCREEN|function calc|No orders/i);
  }
 });
@@ -47,7 +54,8 @@ test('fails closed on incorrect basic authentication',async()=>{
 });
 test('authenticated client accesses exact same-origin Quant and Calculator assets',async()=>{
  const H={Authorization:authorization};
- for(const path of ['/index.html?mode=sim','/quant-market-lab.html',
+ for(const path of ['/','/premium-demo.html','/premium-demo-engine.js','/premium-demo-ui.js',
+  '/index.html?mode=sim','/quant-market-lab.html',
   '/quant-market-sources.js','/quant-profit-calc.js','/quant-market-lab.js',
   '/derivatives-shadow.js']){
   const r=await request(path,{headers:H});
@@ -63,8 +71,19 @@ test('authenticated client accesses exact same-origin Quant and Calculator asset
  assert.equal(a.headers.get('x-quant-preview-profile'),'SYNTHETIC_ONLY');
  assert.match(await a.text(),/name="quant-preview-mode" content="synthetic"/);
  const root=await request('/',{headers:H});
- assert.equal(root.status,302);
- assert.equal(root.headers.get('location'),'/index.html?mode=sim');
+ assert.equal(root.status,200,'private preview root must be Premium English, not legacy index');
+ const premiumBody=await root.text();
+ assert.match(premiumBody,/<html lang="en">/);
+ assert.match(premiumBody,/id="explore-cta"/);
+ assert.match(premiumBody,/Created by Proof &amp; Signal/);
+ assert.doesNotMatch(premiumBody,/id="quantProfitLauncher"/);
+ const premiumCsp=root.headers.get('content-security-policy');
+ assert.match(premiumCsp,/connect-src 'none'/);
+ assert.match(premiumCsp,/script-src 'self';/);
+ assert.doesNotMatch(premiumCsp,/script-src[^;]*unsafe-inline/);
+ const premiumJs=await request('/premium-demo-engine.js',{headers:H});
+ assert.equal(premiumJs.status,200);
+ assert.match(await premiumJs.text(),/SYNTHETIC_FIXTURE/);
  const live=await request('/index.html?mode=live',{headers:H});
  assert.equal(live.status,302);
  assert.match(a.headers.get('content-security-policy'),/form-action 'none'/);
@@ -107,6 +126,50 @@ test('HTTPS mandatory outside explicit loopback QA setting',async()=>{
   }});
   assert.equal(spoof.status,403,'untrusted direct clients cannot spoof HTTPS');
  }finally{await new Promise(resolve=>s.close(resolve));}
+});
+test('trusted proxy mode rejects invalid Render hostname and loopback X-Forwarded-Proto spoofing',async()=>{
+ assert.throws(
+   ()=>createPreviewServer({username:user,password,trustProxyHttps:true}),
+   /validated RENDER_EXTERNAL_HOSTNAME/
+ );
+ assert.throws(
+   ()=>createPreviewServer({username:user,password,trustProxyHttps:true,renderHostname:'attacker.example'}),
+   /validated RENDER_EXTERNAL_HOSTNAME/
+ );
+ const s=createPreviewServer({username:user,password,trustProxyHttps:true,
+  renderHostname:'fomo-qa.onrender.com'});
+ await new Promise(resolve=>s.listen(0,'127.0.0.1',resolve));
+ try{
+  const endpoint='http://127.0.0.1:'+s.address().port+'/premium-demo.html';
+  const resp=await fetch(endpoint,{headers:{
+    Host:'fomo-qa.onrender.com',Authorization:authorization,
+    'X-Forwarded-Proto':'https','X-Forwarded-For':'198.51.100.42'
+  }});
+  assert.equal(resp.status,403,'forged localhost proxy TLS headers cannot enable external access');
+ } finally { await new Promise(resolve=>s.close(resolve)); }
+});
+test('IP header rotation and intermittent correct login cannot reset global failure budget',async()=>{
+ const bad='Basic '+Buffer.from(user+':invalid').toString('base64');
+ for(let i=0;i<7;i++){
+  const wrong=await request('/premium-demo.html',{headers:{
+    Authorization:bad,'X-Forwarded-For':'198.51.100.'+(i+1),
+    'X-Forwarded-Proto':i%2?'https':'http'
+  }});
+  assert.equal(wrong.status,401,'wrong password attempt '+i);
+  const good=await request('/',{headers:{
+    Authorization:authorization,'X-Forwarded-For':'203.0.113.'+(i+1)
+  }});
+  assert.equal(good.status,200,'prior correct login must not reset accumulated failures');
+ }
+ const last=await request('/premium-demo.html',{headers:{
+    Authorization:bad,'X-Forwarded-For':'198.51.100.99'
+ }});
+ assert.equal(last.status,401);
+ const locked=await request('/',{headers:{
+    Authorization:authorization,'X-Forwarded-For':'203.0.113.123'
+ }});
+ assert.equal(locked.status,429,'eighth failed login triggers per-instance fail-closed lock');
+ assert.equal(locked.headers.get('retry-after'),'60');
 });
 test('health route discloses no service credentials or user data',async()=>{
  const r=await request('/healthz');
