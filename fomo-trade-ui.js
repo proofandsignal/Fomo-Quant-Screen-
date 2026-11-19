@@ -20,6 +20,7 @@
   clear();
   try{
    const p={mode:el('fomoTradeMode').value};
+   if(el('fomoTradeScenario').value==='stale')throw Error('STALE_SOURCE_NO_HYPOTHETICAL_NET');
    for(const k of keys){
     const raw=el(id(k)).value;
     if(raw.trim()==='')throw Error('MISSING_'+k.toUpperCase());
@@ -44,7 +45,7 @@
   ref=null;el('fomoTradeSelected').textContent=v.asset+' · SYNTHETIC FIXTURE';
   el('fomoTradeMode').value=mode;
   const p={notional:1000,entry:v.entry,exit:v.target,stop:v.stop,
-   leverage:v.leverage,fomoFeeBps:5,protocolFeeBps:mode==='SPOT'?0:3,
+   leverage:v.leverage||1,fomoFeeBps:5,protocolFeeBps:mode==='SPOT'?0:3,
    slippageRoundTripBps:16,fundingCostBps:mode==='SPOT'?0:4,networkCostUsd:0};
   for(const [k,n] of Object.entries(p))el(id(k)).value=String(n);
   render();
