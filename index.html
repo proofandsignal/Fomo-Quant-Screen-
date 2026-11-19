@@ -261,6 +261,19 @@ footer{padding:10px 12px 18px;color:var(--dim);font-size:10.5px;border-top:1px s
 .quant-bundle-cta:hover,.quant-bundle-cta:focus-visible{border-color:#35f08d;color:#dbffeb;background:#103341;text-decoration:none}
 .quant-bundle-note{padding:10px 12px;border:1px solid #315064;background:#0a1826;border-radius:10px}
 @media(max-width:420px){.quant-bundle-cta{font-size:10px;padding:8px 9px}}
+/* FOMO-specific addon within the untouched original dark/cyan UI. */
+.fomo-trade-panel{border-top:1px solid var(--line2);padding:7px 10px 12px}
+.fomo-trade-panel .ph{margin:-7px -10px 10px}
+.fomo-note{padding:8px;background:#0c2231;border:1px solid #28516c}
+.fomo-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+.fomo-fields label{display:grid;gap:4px;min-width:0}
+.fomo-fields input,.fomo-fields select{width:100%;min-width:0}
+.fomo-costs{border:1px solid var(--line2);padding:8px;margin:10px 0}
+.fomo-costs summary{color:var(--cyan);font-weight:700;cursor:pointer}
+.fomo-costs .fomo-fields{margin-top:10px}
+.fomo-output{margin:10px 0}.fomo-output b{overflow-wrap:anywhere}
+.fomo-warning{background:#25181b;color:#ffb8c5;border:1px solid #733845;padding:7px}
+@media(max-width:480px){.fomo-fields{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -366,6 +379,43 @@ footer{padding:10px 12px 18px;color:var(--dim);font-size:10.5px;border-top:1px s
             </div>
           </div>
           <div id="ppOut" class="sect"><div class="empty">Signal → Analyst validation → Position Planner → Calculator → Risk Gate → Paper Snapshot.</div></div>
+          <!-- FOMO ONLY: read-only trade analysis inside original Position Planner -->
+          <section id="fomoTradePanel" class="pb fomo-trade-panel" aria-label="FOMO Trade Intelligence hypothetical">
+            <div class="ph"><i>◆</i> FOMO TRADE INTELLIGENCE <span class="r">SPOT · PERPS LONG / SHORT</span></div>
+            <p class="mini fomo-note">FOMO market availability UNVERIFIED. CoinGecko, DEX Screener and X NOT CONNECTED. All rates, prices and outcomes are synthetic assumptions. No real funds.</p>
+            <div class="pp-grid fomo-fields">
+              <label>Scenario<select id="fomoTradeScenario"><option value="breakout">Early momentum · Spot</option><option value="concentration">Holder risk · Spot</option><option value="chase">Late chase · Spot</option><option value="stale">Stale source · blocked</option><option value="perpsLong">FOMO Perps LONG</option><option value="perpsShort">FOMO Perps SHORT</option></select></label>
+              <label>FOMO trade mode<select id="fomoTradeMode"><option value="SPOT">SPOT BUY / SELL</option><option value="PERPS_LONG">PERPS LONG</option><option value="PERPS_SHORT">PERPS SHORT</option></select></label>
+              <label>Hypothetical notional ($)<input id="fomoTradeNotional" type="number" step="any" value="1000"></label>
+              <label>Entry reference ($)<input id="fomoTradeEntry" type="number" step="any" value="103"></label>
+              <label>Exit hypothesis ($)<input id="fomoTradeExit" type="number" step="any" value="115"></label>
+              <label>Risk stop ($)<input id="fomoTradeStop" type="number" step="any" value="97"></label>
+              <label>Illustrative leverage<input id="fomoTradeLeverage" type="number" min="1" max="20" step="1" value="1"></label>
+            </div>
+            <details class="fomo-costs"><summary>Assumed fee / slippage / funding · editable, NOT verified</summary>
+              <div class="pp-grid fomo-fields">
+                <label>Assumed FOMO fee bps/side<input id="fomoTradeFomoFeeBps" type="number" step="any" value="5"></label>
+                <label>Protocol fee bps/side<input id="fomoTradeProtocolFeeBps" type="number" step="any" value="0"></label>
+                <label>Round-trip slippage bps<input id="fomoTradeSlippageRoundTripBps" type="number" step="any" value="16"></label>
+                <label>Funding cost bps<input id="fomoTradeFundingCostBps" type="number" step="any" value="0"></label>
+                <label>Spot network cost ($)<input id="fomoTradeNetworkCostUsd" type="number" step="any" value="0"></label>
+              </div>
+            </details>
+            <div class="toolbar"><span class="mini" id="fomoTradeSelected">DEMO TOKEN</span>
+              <button type="button" class="btn vi" id="fomoTradeUseSelected">USE SELECTED RADAR REFERENCE</button></div>
+            <div class="pp-money fomo-output">
+              <span>Hypothetical gross</span><b id="fomoTradeGross">—</b>
+              <span>All modeled costs</span><b id="fomoTradeCosts">—</b>
+              <span>Hypothetical NET P&amp;L</span><b id="fomoTradeNet">—</b>
+              <span>Stop outcome after costs</span><b id="fomoTradeStopNet">—</b>
+              <span>Estimated break-even</span><b id="fomoTradeBreakEven">—</b>
+              <span>Capital / illustrative margin</span><b id="fomoTradeMargin">—</b>
+              <span>NET ROI on notional</span><b id="fomoTradeRoi">—</b>
+            </div>
+            <p class="mini fomo-warning" id="fomoTradeStatus" aria-live="polite">HYPOTHETICAL ONLY · NO PAPER / NO ORDERS</p>
+            <button type="button" class="btn vi" id="fomoTradeExport" disabled>EXPORT HYPOTHETICAL JSON</button>
+            <span class="mini">Listing UNKNOWN · Liquidation UNKNOWN · Verified profit NULL</span>
+          </section>
           <div class="quant-bundle-note" style="margin:9px 12px 12px">
             <div class="mini" style="margin-bottom:8px">Separate research-only SPOT reference calculator. Does not qualify PAPER trades or change the locked Position Planner / Security Gate. Current supported venues depend on live source and browser CORS status.</div>
             <a id="quantProfitFromPlanner" class="quant-bundle-cta" href="./quant-market-lab.html"
@@ -2405,9 +2455,21 @@ async function boot() {
   window.addEventListener('beforeunload', () => persist(true));
   document.addEventListener('visibilitychange', () => { if (document.hidden) persist(true); });
 }
+// Sanitized read-only selected RADAR context; no account, secrets or PAPER state.
+Object.defineProperty(window,'FOMO_QS_RESEARCH_SNAPSHOT',{configurable:false,writable:false,
+ value:()=>{const t=S.sel?S.tokens.get(S.sel):null,m=t&&t.m;
+  return Object.freeze({mode:CFG.mode,symbol:t?String(t.symbol||''):null,
+   chain:t?String(t.chain||''):null,address:t?String(t.address||''):null,
+   referencePrice:m&&Number.isFinite(m.price)&&m.price>0?m.price:null,
+   sourceTimestamp:m&&Number.isFinite(m.updated)?m.updated:null,
+   radarDecision:t?String(t.decision||'UNKNOWN'):'UNKNOWN',
+   fomoMarketVerified:false});
+ }});
 boot();
 
 </script>
+<script src="premium-demo-engine.js" defer></script>
+<script src="fomo-trade-ui.js" defer></script>
 <script src="derivatives-shadow.js" defer></script>
 </body>
 </html>
