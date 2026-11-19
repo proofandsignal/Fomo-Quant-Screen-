@@ -35,98 +35,10 @@
    content('entry',fmt(data.entry,'$'));
    content('stop',fmt(data.stop,'$'));
    content('target',fmt(data.target,'$'));
-   content('gross',fmt(data.hypotheticalGross,'
-   content('rr',data.rr===null?'—':data.rr+'x');
-   content('capital-display',fmt(capital,'$'));
-   content('paper-gate','LOCKED · NOT ELIGIBLE');
-   content('evidence-source','LOCAL SYNTHETIC FIXTURE');
-   $('net').setAttribute('aria-label','Hypothetical net only, not verified profit');
- }
- for(const button of document.querySelectorAll('[data-scenario]')){
-   button.addEventListener('click',()=>{selected=button.dataset.scenario;render();});
- }
- $('notional').addEventListener('change',()=>{capital=Number($('notional').value);render();});
- $('export-fixture').addEventListener('click',()=>{
-   const data={...latest,exportedAtUtc:new Date().toISOString(),
-     scope:'NOT_PAPER_ELIGIBLE',humanApproval:false};
-   const blob=new Blob([JSON.stringify(data,null,2)+'\n'],{type:'application/json'});
-   const url=URL.createObjectURL(blob);
-   const a=document.createElement('a');
-   a.href=url;a.download='fomo-quant-synthetic-evidence.json';a.click();
-   setTimeout(()=>URL.revokeObjectURL(url),1000);
- });
- render();
-})();
-));
-   content('costs',fmt(data.hypotheticalCosts,'
-   content('rr',data.rr===null?'—':data.rr+'x');
-   content('capital-display',fmt(capital,'$'));
-   content('paper-gate','LOCKED · NOT ELIGIBLE');
-   content('evidence-source','LOCAL SYNTHETIC FIXTURE');
-   $('net').setAttribute('aria-label','Hypothetical net only, not verified profit');
- }
- for(const button of document.querySelectorAll('[data-scenario]')){
-   button.addEventListener('click',()=>{selected=button.dataset.scenario;render();});
- }
- $('notional').addEventListener('change',()=>{capital=Number($('notional').value);render();});
- $('export-fixture').addEventListener('click',()=>{
-   const data={...latest,exportedAtUtc:new Date().toISOString(),
-     scope:'NOT_PAPER_ELIGIBLE',humanApproval:false};
-   const blob=new Blob([JSON.stringify(data,null,2)+'\n'],{type:'application/json'});
-   const url=URL.createObjectURL(blob);
-   const a=document.createElement('a');
-   a.href=url;a.download='fomo-quant-synthetic-evidence.json';a.click();
-   setTimeout(()=>URL.revokeObjectURL(url),1000);
- });
- render();
-})();
-));
-   content('net',fmt(data.hypotheticalNet,'
-   content('rr',data.rr===null?'—':data.rr+'x');
-   content('capital-display',fmt(capital,'$'));
-   content('paper-gate','LOCKED · NOT ELIGIBLE');
-   content('evidence-source','LOCAL SYNTHETIC FIXTURE');
-   $('net').setAttribute('aria-label','Hypothetical net only, not verified profit');
- }
- for(const button of document.querySelectorAll('[data-scenario]')){
-   button.addEventListener('click',()=>{selected=button.dataset.scenario;render();});
- }
- $('notional').addEventListener('change',()=>{capital=Number($('notional').value);render();});
- $('export-fixture').addEventListener('click',()=>{
-   const data={...latest,exportedAtUtc:new Date().toISOString(),
-     scope:'NOT_PAPER_ELIGIBLE',humanApproval:false};
-   const blob=new Blob([JSON.stringify(data,null,2)+'\n'],{type:'application/json'});
-   const url=URL.createObjectURL(blob);
-   const a=document.createElement('a');
-   a.href=url;a.download='fomo-quant-synthetic-evidence.json';a.click();
-   setTimeout(()=>URL.revokeObjectURL(url),1000);
- });
- render();
-})();
-));
-   content('margin',data.tradeMode==='FOMO PERPS'?fmt(data.assumedMargin,'
-   content('rr',data.rr===null?'—':data.rr+'x');
-   content('capital-display',fmt(capital,'$'));
-   content('paper-gate','LOCKED · NOT ELIGIBLE');
-   content('evidence-source','LOCAL SYNTHETIC FIXTURE');
-   $('net').setAttribute('aria-label','Hypothetical net only, not verified profit');
- }
- for(const button of document.querySelectorAll('[data-scenario]')){
-   button.addEventListener('click',()=>{selected=button.dataset.scenario;render();});
- }
- $('notional').addEventListener('change',()=>{capital=Number($('notional').value);render();});
- $('export-fixture').addEventListener('click',()=>{
-   const data={...latest,exportedAtUtc:new Date().toISOString(),
-     scope:'NOT_PAPER_ELIGIBLE',humanApproval:false};
-   const blob=new Blob([JSON.stringify(data,null,2)+'\n'],{type:'application/json'});
-   const url=URL.createObjectURL(blob);
-   const a=document.createElement('a');
-   a.href=url;a.download='fomo-quant-synthetic-evidence.json';a.click();
-   setTimeout(()=>URL.revokeObjectURL(url),1000);
- });
- render();
-})();
-):'—');
+   content('gross',fmt(data.hypotheticalGross,'$'));
+   content('costs',fmt(data.hypotheticalCosts,'$'));
+   content('net',fmt(data.hypotheticalNet,'$'));
+   content('margin',data.tradeMode==='FOMO PERPS'?fmt(data.assumedMargin,'$'):'—');
    content('fee-assumptions','ASSUMED · NOT LIVE');
    content('rr',data.rr===null?'—':data.rr+'x');
    content('capital-display',fmt(capital,'$'));
