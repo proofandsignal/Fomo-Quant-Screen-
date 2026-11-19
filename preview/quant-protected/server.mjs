@@ -16,6 +16,7 @@ const files=Object.freeze({
   '/premium-demo.html':'premium-demo.html',
   '/premium-demo-engine.js':'premium-demo-engine.js',
   '/premium-demo-ui.js':'premium-demo-ui.js',
+  '/fomo-trade-ui.js':'fomo-trade-ui.js',
   '/index.html':'index.html',
   '/quant-market-lab.html':'quant-market-lab.html',
   '/quant-market-sources.js':'quant-market-sources.js',

@@ -427,6 +427,67 @@ def premium_demo_browser(browser):
     mobile.close()
     print("FOMO_SCOPE_PREMIUM_BROWSER_PASS: FOMO Spot/LONG/SHORT fictional cases, 6 scenarios, owned logo, Explore, export, 390px, no API")
 
+def fomo_original_trade_browser(browser):
+    """Run the actual ORIGINAL FOMO dashboard, not the standalone Premium landing."""
+    address=f"http://127.0.0.1:{PORT}/index.html?mode=sim"
+    page=browser.new_page(viewport={"width":1440,"height":900},accept_downloads=True)
+    errors=[]
+    page.on("pageerror",lambda e:errors.append(str(e)))
+    page.goto(address,wait_until="domcontentloaded")
+    expect(page.locator("#positionPlannerPanel")).to_be_visible()
+    expect(page.locator("#fomoTradePanel")).to_be_visible()
+    expect(page.locator("#fomoTradeStatus")).to_contain_text("HYPOTHETICAL ONLY")
+    assert "$" in page.locator("#fomoTradeNet").inner_text()
+    assert page.locator("#fomoTradeGross").inner_text()!="—"
+    page.locator("#fomoTradeScenario").select_option("perpsLong")
+    assert page.locator("#fomoTradeMode").input_value()=="PERPS_LONG"
+    expect(page.locator("#fomoTradeStatus")).to_contain_text("FOMO MARKET UNVERIFIED")
+    page.locator("#fomoTradeScenario").select_option("perpsShort")
+    assert page.locator("#fomoTradeMode").input_value()=="PERPS_SHORT"
+    assert page.locator("#fomoTradeNet").inner_text()!="—"
+    page.locator("#fomoTradeScenario").select_option("stale")
+    expect(page.locator("#fomoTradeStatus")).to_contain_text("STALE_SOURCE")
+    assert page.locator("#fomoTradeNet").inner_text()=="—"
+    expect(page.locator("#fomoTradeExport")).to_be_disabled()
+    page.locator("#fomoTradeScenario").select_option("breakout")
+    page.locator("#fomoTradeNotional").fill("5000")
+    expect(page.locator("#fomoTradeExport")).to_be_enabled()
+    with page.expect_download() as download:
+        page.locator("#fomoTradeExport").click()
+    exported=json.loads(Path(download.value.path()).read_text())
+    assert exported["schema"]=="proofandsignal.fomo.trade-plan.synthetic.v1"
+    assert exported["notional"]==5000
+    assert exported["scope"]=="NOT_PAPER_ELIGIBLE"
+    assert exported["fomoMarketVerified"] is False
+    assert exported["verifiedNet"] is None
+    assert exported["allowedToTrade"] is False
+    assert exported["paperEligible"] is False
+    assert exported["realizedPnL"] is None
+    assert exported["liquidationPrice"] is None
+    assert exported["executedOrders"]==0
+    page.locator("#fomoTradeEntry").fill("0")
+    expect(page.locator("#fomoTradeStatus")).to_contain_text("BLOCKED INPUT")
+    assert page.locator("#fomoTradeNet").inner_text()=="—"
+    expect(page.locator("#fomoTradeExport")).to_be_disabled()
+    assert not errors,"Original FOMO desktop app JS exceptions: "+str(errors)
+    page.screenshot(path=str(OUT/"original-fomo-planner-desktop.png"),full_page=True)
+    page.close()
+
+    mobile=browser.new_page(viewport={"width":390,"height":844},
+                            device_scale_factor=2,accept_downloads=True)
+    mobile_errors=[]
+    mobile.on("pageerror",lambda e:mobile_errors.append(str(e)))
+    mobile.goto(address,wait_until="domcontentloaded")
+    expect(mobile.locator("#fomoTradePanel")).to_be_visible()
+    mobile.locator("#fomoTradeScenario").select_option("perpsShort")
+    expect(mobile.locator("#fomoTradeStatus")).to_contain_text("HYPOTHETICAL ONLY")
+    bounds=mobile.locator("#fomoTradePanel").bounding_box()
+    assert bounds and bounds["width"]<=390+2,"Embedded mobile planner exceeds physical 390px layout"
+    assert not mobile_errors,"Original FOMO mobile app JS exceptions: "+str(mobile_errors)
+    mobile.screenshot(path=str(OUT/"original-fomo-planner-mobile390.png"),full_page=True)
+    mobile.close()
+    print("FOMO_ORIGINAL_PLANNER_CHROMIUM_PASS: actual original dashboard, six fixtures, Spot/Perps LONG/SHORT, stale blocked, non-tradable NET export, desktop and emulated 390px")
+
 def main():
     server=subprocess.Popen(["python","-m","http.server",str(PORT),"--bind","127.0.0.1"],
                             cwd=ROOT,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
@@ -450,6 +511,7 @@ def main():
             deterministic(browser)
             public_pages_guard(browser)
             premium_demo_browser(browser)
+            fomo_original_trade_browser(browser)
             browser.close()
     finally:
         server.terminate()

@@ -43,6 +43,52 @@
      signal:'Hypothetical decline scenario. A spot meme token does not imply a FOMO SHORT market.',
      why:'SHORT listing, borrow/funding, liquidation and account eligibility are unknown.'})
  });
+
+ // Shared FOMO-specific what-if model. Pure local function; no execution or PAPER writes.
+ function modelTrade(i){
+  if(!i||typeof i!=='object'||Array.isArray(i))throw Error('INVALID_INPUT');
+  if(!['SPOT','PERPS_LONG','PERPS_SHORT'].includes(i.mode))throw Error('INVALID_FOMO_MODE');
+  const perp=i.mode!=='SPOT',direction=i.mode==='PERPS_SHORT'?-1:1;
+  const val=(name,min,max)=>{const n=i[name];if(typeof n!=='number'||!Number.isFinite(n)||n<min||n>max)throw Error('INVALID_'+name.toUpperCase());return n;};
+  const n=val('notional',.01,1e6),entry=val('entry',1e-16,1e12),
+   exit=val('exit',1e-16,1e12),stop=val('stop',1e-16,1e12),
+   leverage=val('leverage',1,20),fomoFeeBps=val('fomoFeeBps',0,1000),
+   protocolFeeBps=val('protocolFeeBps',0,1000),
+   slippageRoundTripBps=val('slippageRoundTripBps',0,5000),
+   fundingCostBps=val('fundingCostBps',0,1000),
+   networkCostUsd=val('networkCostUsd',0,10000);
+  if(direction===1&&stop>=entry||direction===-1&&stop<=entry)throw Error('INVALID_STOP_DIRECTION');
+  if(!perp&&(leverage!==1||protocolFeeBps!==0||fundingCostBps!==0))throw Error('SPOT_PERP_MIX');
+  const qty=n/entry,ev=qty*exit,sv=qty*stop,
+   fomoEntry=n*fomoFeeBps/1e4,fomoExit=ev*fomoFeeBps/1e4,
+   protoEntry=perp?n*protocolFeeBps/1e4:0,protoExit=perp?ev*protocolFeeBps/1e4:0,
+   slip=n*slippageRoundTripBps/1e4,funding=perp?n*fundingCostBps/1e4:0,
+   fees=fomoEntry+fomoExit+protoEntry+protoExit,costs=fees+slip+funding+networkCostUsd,
+   gross=direction*(ev-n),net=gross-costs,
+   stopCost=(n+sv)*(fomoFeeBps+protocolFeeBps)/1e4+slip+funding+networkCostUsd,
+   stopNet=direction*(sv-n)-stopCost,
+   entryRate=(fomoFeeBps+protocolFeeBps+slippageRoundTripBps)/1e4,
+   exitRate=(fomoFeeBps+protocolFeeBps)/1e4,
+   breakeven=(n*(direction+entryRate)+funding+networkCostUsd)/(qty*(direction-exitRate)),
+   margin=perp?n/leverage:n;
+  if(![qty,ev,sv,fees,costs,gross,net,stopNet,breakeven,margin,net/n*100].every(Number.isFinite)||breakeven<=0)throw Error('NONFINITE_FINANCIAL_RESULT');
+  const f=x=>Number(x.toFixed(4));
+  return Object.freeze({schema:'proofandsignal.fomo.trade-plan.synthetic.v1',
+   market:'FOMO',mode:i.mode,side:i.mode==='SPOT'?'BUY_THEN_SELL':i.mode==='PERPS_LONG'?'LONG':'SHORT',
+   notional:n,entry,exit,stop,leverage,quantity:Number(qty.toPrecision(12)),
+   hypotheticalGross:f(gross),hypotheticalCosts:f(costs),hypotheticalNet:f(net),
+   hypotheticalStopNet:f(stopNet),hypotheticalBreakEven:Number(breakeven.toPrecision(12)),
+   margin:f(margin),roiNotionalPct:f(net/n*100),
+   roiMarginPct:perp?f(net/margin*100):null,
+   assumedCosts:Object.freeze({fomoEntryFee:f(fomoEntry),fomoExitFee:f(fomoExit),
+    protocolEntryFee:f(protoEntry),protocolExitFee:f(protoExit),slippage:f(slip),
+    funding:f(funding),network:f(networkCostUsd)}),
+   assumptions:Object.freeze({fomoFeeBps,protocolFeeBps,slippageRoundTripBps,fundingCostBps,networkCostUsd}),
+   fomoMarketVerified:false,feesVerified:false,sourceVerified:false,
+   liquidationVerified:false,liquidationPrice:null,verificationTier:'HYPOTHETICAL_ONLY',
+   verifiedNet:null,realizedPnL:null,paperEligible:false,allowedToTrade:false,executedOrders:0,
+   note:'No live FOMO market, authorized execution or realized profit evidence.'});
+ }
  function evaluate(name,capital){
    const p=PRESETS[name];
    if(!p)throw Error('Unknown synthetic scenario');
@@ -87,5 +133,5 @@
      notes:'All prices, fees, funding and leverage are fictional cost assumptions; no actual FOMO market, live data, market eligibility, liquidation or executed profit is verified.'
    };
  }
- return Object.freeze({evaluate,names:Object.freeze(Object.keys(PRESETS))});
+ return Object.freeze({evaluate,modelTrade,names:Object.freeze(Object.keys(PRESETS))});
 });

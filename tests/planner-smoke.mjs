@@ -14,7 +14,7 @@ const scripts=[...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script
 if(!scripts.length)throw new Error('No script found');
 for(const js of scripts)new Function(js);
 if((html.match(/<\/body>/g)||[]).length!==1)throw new Error('Unexpected body count');
-if((html.match(/<\/script>/g)||[]).length!==2)throw new Error('Unexpected script count');
+if((html.match(/<\/script>/g)||[]).length!==4)throw new Error('Unexpected script count');
 for(const marker of ['id="bybitShadowPanel"','src="derivatives-shadow.js"','id="bybitShadowRefresh"','id="bybitShadowExport"'])if(!html.includes(marker))throw new Error('Missing Bybit integration marker: '+marker);
 console.log('Planner smoke PASS');
 

@@ -7,6 +7,8 @@ on:
       - 'premium-demo.html'
       - 'premium-demo-engine.js'
       - 'premium-demo-ui.js'
+      - 'fomo-trade-ui.js'
+      - 'tests/fomo-trade-planner.mjs'
       - 'tests/premium-demo.mjs'
       - 'quant-market-lab.html'
       - 'quant-market-lab.js'
@@ -26,6 +28,8 @@ on:
       - 'premium-demo.html'
       - 'premium-demo-engine.js'
       - 'premium-demo-ui.js'
+      - 'fomo-trade-ui.js'
+      - 'tests/fomo-trade-planner.mjs'
       - 'tests/premium-demo.mjs'
       - 'quant-market-lab.html'
       - 'quant-market-lab.js'
@@ -55,6 +59,8 @@ jobs:
           node --check quant-market-lab.js
           node --check premium-demo-engine.js
           node --check premium-demo-ui.js
+          node --check fomo-trade-ui.js
+          node --test tests/fomo-trade-planner.mjs
           node tests/derivatives-isolation.mjs
           node --test tests/quant-multivenue.mjs tests/quant-release-invariants.mjs tests/quant-protected-preview.mjs tests/premium-demo.mjs
       - uses: actions/setup-python@v5
