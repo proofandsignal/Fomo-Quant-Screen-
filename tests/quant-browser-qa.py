@@ -390,10 +390,10 @@ def premium_demo_browser(browser):
     expect(page.locator("#trade-market")).to_have_text("FOMO PERPS")
     expect(page.locator("#trade-side")).to_have_text("LONG · 3x")
     assert page.locator("#listing-status").inner_text()=="NO · UNVERIFIED"
-    assert page.locator("#gross").inner_text()!=="—"
+    assert page.locator("#gross").inner_text()!="—"
     page.locator('[data-scenario="perpsShort"]').click()
     expect(page.locator("#trade-side")).to_have_text("SHORT · 2x")
-    assert page.locator("#costs").inner_text()!=="—"
+    assert page.locator("#costs").inner_text()!="—"
     assert "NOT CONNECTED" in page.locator("#experience").inner_text()
     page.locator('[data-scenario="breakout"]').click()
     page.locator("#notional").select_option("5000")
