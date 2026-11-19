@@ -190,3 +190,30 @@ test('brute-force throttling denies repeated unknown clients without revealing p
  assert.equal(blocked.headers.get('retry-after'),'60');
  assert.doesNotMatch(await blocked.text(),/Market Sources|Calculator/);
 });
+
+
+test('FOMO original Planner and new addon are exact real assets gated by Basic Auth',async()=>{
+ const routes=[
+  ['/index.html?mode=sim','index.html'],
+  ['/fomo-trade-ui.js','fomo-trade-ui.js'],
+  ['/premium-demo-engine.js','premium-demo-engine.js']
+ ];
+ const {readFileSync}=await import('node:fs');
+ for(const [path,name] of routes){
+  const denied=await request(path);
+  assert.equal(denied.status,401,'must deny original asset without credentials: '+path);
+  const approved=await request(path,{headers:{Authorization:authorization}});
+  assert.equal(approved.status,200,'must serve real original asset only with credentials: '+path);
+  assert.match(approved.headers.get('content-security-policy')||'',/connect-src 'none'/);
+  assert.equal(approved.headers.get('x-quant-preview-profile'),'SYNTHETIC_ONLY');
+  assert.match(approved.headers.get('cache-control')||'',/no-store/);
+  const raw=await approved.text();
+  assert.equal(raw,readFileSync(new URL('../'+name,import.meta.url),'utf8'),
+   'served byte-for-byte original application source, no stub: '+name);
+  if(name==='index.html'){
+   assert.match(raw,/id="positionPlannerPanel"/);
+   assert.match(raw,/id="fomoTradePanel"/);
+   assert.match(raw,/src="fomo-trade-ui\.js"/);
+  }
+ }
+});
